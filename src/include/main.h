@@ -3,7 +3,6 @@
 #include <iostream>
 #include "problem.hpp"
 #include "msum.h"
-#include "msumclever.h"
 #include "leftlayer.h"
 #include "leftlayerone.h"
 #include "combine.h"

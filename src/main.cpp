@@ -16,15 +16,10 @@ int main(int argc, char **argv)
     }
     else if (algorithm == 1)
     {
-        MsumClever solver = MsumClever();
-        solver.solve(&problem);
-    }
-    else if (algorithm == 2)
-    {
         LeftLayer solver = LeftLayer();
         solver.solve(&problem);
     }
-    else if (algorithm == 3)
+    else if (algorithm == 2)
     {
         LeftLayerOne solver = LeftLayerOne();
         solver.solve(&problem);

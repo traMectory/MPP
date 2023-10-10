@@ -26,16 +26,12 @@ SolveStatus LeftLayer::solve(Problem *prob)
 
     std::vector<Item *> copyItems = prob->getItems();
 
-    // std::sort(copyItems.begin(), copyItems.end(), compareItems);
-
-    // std::cout << "2\n";
     int count = 0;
     int num_items = 0;
     for (Item *item : copyItems)
     {
         num_items += item->quantity;
     }
-    // std::cout << "2\n";
 
     std::cout << "total number of items: " << num_items << std::endl;
 
@@ -60,8 +56,6 @@ SolveStatus LeftLayer::solve(Problem *prob)
             if (item->quantity == 0)
                 continue;
 
-            // std::cout << "(" << count << "/" << num_items << ")"
-            //           << " q: " << item->quantity << ", v: " << item->value << ", v/a: " << (item->value / item->poly.area());
             count += item->quantity;
             
             Polygon inverse;
@@ -80,9 +74,6 @@ SolveStatus LeftLayer::solve(Problem *prob)
             Polygon_with_holes sum = CGAL::minkowski_sum_2(target, inverse, ssab_decomp);
             tsum += dif(tms, ssum);
 
-            // Problem tmp(outer_target, {});
-            // tmp.addCandidate(container, 1);
-            // tmp.visualizeSolution();
 
             Pwh_list freeSpace;
             for (Polygon hole : sum.holes())

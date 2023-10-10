@@ -1,72 +1,78 @@
 #include "msum.h"
 
-bool compareItems(Item *i1, Item *i2)
+
+// Sort function based on area
+bool compareItemsC(Item *i1, Item *i2)
 {
     return i1->poly.area() > i2->poly.area();
 };
 
+/*
+ * This function uses the Minkowski Sum to calculate if and where we can place an item, if a placement exists we simply put it as far left as possible.
+ */
 SolveStatus Msum::solve(Problem *prob)
 {
-    std::cout << "msum\n";
-    // Point p(0, 0.3), q, r(2, 0.9);
 
-    // {
-    //     q = Point(1, 0.6);
-    //     std::cout << (CGAL::collinear(p, q, r) ? "collinear\n" : "not collinear\n");
-    // }
-    // {
-    //     std::istringstream input("0 0.3   1 0.6   2 0.9");
-    //     input >> p >> q >> r;
-    //     std::cout << (CGAL::collinear(p, q, r) ? "collinear\n" : "not collinear\n");
-    // }
-    // {
-    //     q = CGAL::midpoint(p, r);
-    //     std::cout << (CGAL::collinear(p, q, r) ? "collinear\n" : "not collinear\n");
-
-    //     double a = q.x().approx().pair().first();
-
-    //     std::cout << a << std::endl;
-    //     std::cout << q.y() << std::endl;
-    // }
+    // Create the container which we use as obstacle to calculate the freespace around. The container has the shape of a C
 
     Polygon container = prob->getContainer();
-
     long wall = 10e6;
 
-    Polygon outer_target;
-    outer_target.push_back(Point(container.bbox().xmin() - wall, container.bbox().ymin() - wall));
-    outer_target.push_back(Point(container.bbox().xmax() + wall, container.bbox().ymin() - wall));
-    outer_target.push_back(Point(container.bbox().xmax() + wall, container.bbox().ymax() + wall));
-    outer_target.push_back(Point(container.bbox().xmin() - wall, container.bbox().ymax() + wall));
+    Polygon target;
+    target.push_back(Point(container.bbox().xmax() + wall, container.bbox().ymax() + wall));
+    target.push_back(Point(container.bbox().xmin() - wall, container.bbox().ymax() + wall));
+    target.push_back(Point(container.bbox().xmin() - wall, container.bbox().ymin() - wall));
+    target.push_back(Point(container.bbox().xmax() + wall, container.bbox().ymin() - wall));
 
-    Polygon_with_holes target(outer_target);
-    target.add_hole(container);
+
+    auto v = container.right_vertex()[0];
+    int n = 0;
+    int i = container.size() - 1;
+    bool adding = false;
+    
+    while (i > n)
+    {
+        if (!adding && container[i] == v)
+        {
+            adding = true;
+            n -= (container.size() - i);
+        }
+
+        if (adding)
+        {
+            target.push_back(container[i < 0 ? i + container.size() : i]);
+        }
+
+        i--;
+    }
+    
+    target.push_back(Point(container[i < 0 ? i + container.size() : i].x(), container[i < 0 ? i + container.size() : i].y()));
+    target.push_back(Point(container.bbox().xmax() + wall, container.bbox().ymin() - wall + 1));
+
+
+    // Get items and sort on size
 
     std::vector<Item *> copyItems = prob->getItems();
+    std::sort(copyItems.begin(), copyItems.end(), compareItemsC);
 
-    std::sort(copyItems.begin(), copyItems.end(), compareItems);
-
-    CGAL::Polygon_vertical_decomposition_2<K> ssab_decomp;
-
-    // std::cout << "2\n";
+    // Simply calculate total number of items (not same as num_items)
     int count = 0;
     int num_items = 0;
     for (Item *item : copyItems)
     {
         num_items += item->quantity;
     }
-
     std::cout << "total number of items: " << num_items << std::endl;
 
+    // Algorithm is pretty simple and greedy. Look for a placement and place it, else no need to consider it.
     for (Item *item : copyItems)
     {
         if (item->quantity == 0)
             continue;
 
-        // std::cout << "(" << count << "/" << num_items << ")"
-        //           << " q: " << item->quantity << ", v: " << item->value << ", v/a: " << (item->value / item->poly.area());
         count += item->quantity;
 
+        // The next section calculates the freespace of our item. See slides on Minkowski Sum.
         Polygon inverse;
         Point left = item->poly.left_vertex()[0];
 
@@ -77,7 +83,7 @@ SolveStatus Msum::solve(Problem *prob)
             inverse.push_back(Point(-newP.x(), -newP.y()));
         }
 
-        Polygon_with_holes sum = CGAL::minkowski_sum_2(target, inverse, ssab_decomp);
+        Polygon_with_holes sum = CGAL::minkowski_sum_2(target, inverse);
 
         Pwh_list freeSpace;
         for (Polygon hole : sum.holes())
@@ -85,6 +91,8 @@ SolveStatus Msum::solve(Problem *prob)
             freeSpace.push_back(Polygon_with_holes(hole));
         }
 
+        // This the expensive part, as for every item we have already added we need to calculate 
+        //     the freespace and intersect it with the freespace calculated so far
         for (Candidate candidate : prob->getCandidates())
         {
             Polygon_with_holes sum2 = CGAL::minkowski_sum_2(candidate.poly, inverse);
@@ -103,8 +111,8 @@ SolveStatus Msum::solve(Problem *prob)
             continue;
         }
 
+        // If there are more items, we don't need to recalculate everything
         while (item->quantity > 0)
-        // for (int i = 0; i < item->quantity; i++)
         {
             Candidate cand;
             Point t = item->poly.vertices()[0];
@@ -115,26 +123,25 @@ SolveStatus Msum::solve(Problem *prob)
             {
                 cand.poly.push_back(v + trans);
             }
+
             cand.index = item->index;
             cand.x_translation = trans.x();
             cand.y_translation = trans.y();
 
-            // if (item->inners.empty())
-
-
             prob->addCandidate(cand, item->value);
 
-            // for (Polygon inner : item->inners)
-            // {
-            //     Polygon innerCand;
-            //     for (Point v : inner)
-            //     {
-            //         innerCand.push_back(v + trans);
-            //     }
-            //     prob->addCandidate(innerCand, 0);
-            // }
+            for (Polygon inner : item->inners)
+            {
+                Polygon innerCand;
+                for (Point v : inner)
+                {
+                    innerCand.push_back(v + trans);
+                }
+                Candidate innerC;
+                innerC.poly = innerCand;
+                prob->addCandidate(innerC, 0);
+            }
 
-            // std::cout << " added";
             item->quantity--;
 
             if (item->quantity > 0)
@@ -154,11 +161,7 @@ SolveStatus Msum::solve(Problem *prob)
                 }
             }
         }
-        // std::cout << std::endl;
-        // break;
     }
-    // std::cout << "doei\n";
 
-    // prob->visualizeSolution();
     return SolveStatus::Feasible;
 }
