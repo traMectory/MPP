@@ -10,10 +10,15 @@
 #include <CGAL/Polygon_with_holes_2.h>
 #include <CGAL/Boolean_set_operations_2.h>
 #include <CGAL/Bbox_2.h>
+#include <CGAL/Cartesian.h>
+#include <CGAL/Quotient.h>
+#include <CGAL/CORE_BigRat.h>
 
 using json = nlohmann::json;
 
-typedef CGAL::Exact_predicates_exact_constructions_kernel K;
+typedef CGAL::Lazy_exact_nt<long long> NT;
+// typedef CGAL::Exact_predicates_exact_constructions_kernel K;
+typedef CGAL::Cartesian<NT> K;
 typedef CGAL::Polygon_with_holes_2<K> Polygon_with_holes;
 typedef CGAL::Polygon_2<K> Polygon;
 typedef Polygon::Vertex_iterator VertexIterator;
@@ -30,9 +35,20 @@ struct Edge
 
 struct Item
 {
+    int index;
     Polygon poly;
+    std::vector<Polygon> inners;
     int quantity;
     int value;
+
+};
+
+struct Candidate
+{
+    int index;
+    Polygon poly;
+    NT x_translation;
+    NT y_translation;
 };
 
 class Problem
@@ -44,9 +60,9 @@ private:
 
     Polygon container;
 
-    std::vector<Polygon> candidates;
+    std::vector<Candidate> candidates;
 
-    std::vector<Item> items;
+    std::vector<Item*> items;
 
     int num_items;
 
@@ -70,7 +86,11 @@ public:
         num_items = 0;
         for (Polygon c : cands)
         {
-            items.push_back(Item(c, 1, 1));
+            Item* it = new Item();
+            it->poly = c;
+            it->quantity = 1;
+            it->value = 1;
+            items.push_back(it);
             num_items++;
         }
     };
@@ -86,20 +106,26 @@ public:
     std::string getString() { return name; };
     int getNumItems() { return num_items; };
 
+    void setItems(std::vector<Item*> itemsN) { items = itemsN; };
+
     bool isValidPacking();
 
     bool test() { return true; };
 
-    void addCandidate(Polygon cand, int value) { candidates.push_back(cand); score += value; };
+    void addCandidate(Candidate cand, int value) { candidates.push_back(cand); score += value; };
 
     Polygon getContainer() { return container; };
-    std::vector<Item> getItems() { return items; };
-    std::vector<Polygon> getCandidates() { return candidates; };
+    std::vector<Item*> getItems() { return items; };
+    std::vector<Candidate> getCandidates() { return candidates; };
+    void prettyPrint() { std::cout << " - Layed " << candidates.size() << " items with a total value of " << score << std::endl; };
 
     // void sortItemsDensity() { std::sort(items.begin(), items.end(), compareItems); };
 
     void loadSolution(std::string solution_name);
     void visualize();
     void visualizeSolution();
+
+    void storeSolution();
+
     void output();
 };

@@ -1,12 +1,10 @@
-#include "leftlayer.h"
-
-#include <chrono>
+#include "leftlayerone.h"
 
 #define tms std::chrono::high_resolution_clock::now()
 #define dif(a, b) std::chrono::duration_cast<std::chrono::microseconds>(a - b)
 #define difp(a, b) std::chrono::duration_cast<std::chrono::microseconds>(a + b)
 
-SolveStatus LeftLayer::solve(Problem *prob)
+SolveStatus LeftLayerOne::solve(Problem *prob)
 {
     auto total = tms;
 
@@ -16,13 +14,7 @@ SolveStatus LeftLayer::solve(Problem *prob)
 
     Polygon container = prob->getContainer();
 
-    long wall = -10e6;
-
-    Polygon outer_target;
-    outer_target.push_back(Point(container.bbox().xmin() - wall, container.bbox().ymin() - wall));
-    outer_target.push_back(Point(container.bbox().xmax() + wall, container.bbox().ymin() - wall));
-    outer_target.push_back(Point(container.bbox().xmax() + wall, container.bbox().ymax() + wall));
-    outer_target.push_back(Point(container.bbox().xmin() - wall, container.bbox().ymax() + wall));
+    NT wall = 10e6;
 
     std::vector<Item *> copyItems = prob->getItems();
 
@@ -44,8 +36,53 @@ SolveStatus LeftLayer::solve(Problem *prob)
     while (added)
     {
 
-        Polygon_with_holes target(outer_target);
-        target.add_hole(container);
+        // Polygon_with_holes target(outer_target);
+        Polygon target;
+        target.push_back(Point(container.bbox().xmax() + wall, container.bbox().ymax() + wall));
+        target.push_back(Point(container.bbox().xmin() - wall, container.bbox().ymax() + wall));
+        target.push_back(Point(container.bbox().xmin() - wall, container.bbox().ymin() - wall));
+        target.push_back(Point(container.bbox().xmax() + wall, container.bbox().ymin() - wall));
+
+        // std::cout << target.is_simple() << container.is_simple() << std::endl;
+
+        // std::cout << container.is_counterclockwise_oriented() << std::endl;
+
+        auto v = container.right_vertex()[0];
+        int n = 0;
+        int i = container.size() - 1;
+        bool adding = false;
+        // std::cout << container.size() << std::endl;
+        while (i > n)
+        {
+            if (!adding && container[i] == v)
+            {
+                adding = true;
+                n -= (container.size() - i);
+                // std::cout << i << std::endl;
+            }
+
+            if (adding)
+            {
+                // std::cout << i % container.size() << std::endl;
+                target.push_back(container[i < 0 ? i + container.size() : i]);
+            }
+
+            i--;
+        }
+        // std::cout << n << std::endl;
+        target.push_back(Point(container[i < 0 ? i + container.size() : i].x(), container[i < 0 ? i + container.size() : i].y()));
+        target.push_back(Point(container.bbox().xmax() + wall, container.bbox().ymin() - wall + 1));
+
+        // std::cout << target.is_simple() << std::endl;
+
+        // Problem temp(target, {});
+        // temp.visualizeSolution();
+
+        // for (int i = 0< container.size(); i++) {
+        //     target.push_ba; i ck(container.right_vertex()[i]);
+        // }
+
+        // target.add_hole(container);
 
         added = false;
 
@@ -63,7 +100,7 @@ SolveStatus LeftLayer::solve(Problem *prob)
             // std::cout << "(" << count << "/" << num_items << ")"
             //           << " q: " << item->quantity << ", v: " << item->value << ", v/a: " << (item->value / item->poly.area());
             count += item->quantity;
-            
+
             Polygon inverse;
             Point left = item->poly.left_vertex()[0];
 
@@ -76,8 +113,7 @@ SolveStatus LeftLayer::solve(Problem *prob)
             }
 
             auto ssum = tms;
-            CGAL::Polygon_triangulation_decomposition_2<K> ssab_decomp;
-            Polygon_with_holes sum = CGAL::minkowski_sum_2(target, inverse, ssab_decomp);
+            Polygon_with_holes sum = CGAL::minkowski_sum_2(target, inverse);
             tsum += dif(tms, ssum);
 
             // Problem tmp(outer_target, {});
@@ -148,27 +184,28 @@ SolveStatus LeftLayer::solve(Problem *prob)
 
             top_i = top_i < bottom_i ? top_i + cand.size() : top_i;
 
-
-            mod.push_back(Point(top.x() - 10e15, top.y()));
-            mod.push_back(Point(bottom.x() - 10e15, bottom.y()));
+            mod.push_back(Point(top.x() - 10e16, top.y()));
+            mod.push_back(Point(bottom.x() - 10e16, bottom.y()));
             for (int i = 0; (i + bottom_i) <= top_i; i++)
             {
                 mod.push_back(cand[(i + bottom_i) % cand.size()]);
             }
 
-            std::list<Polygon_with_holes> intersection;
-            std::list<Polygon_with_holes> difference;
+            // std::list<Polygon_with_holes> intersection;
+            // std::list<Polygon_with_holes> difference;
 
+            // CGAL::intersection(mod, container, std::back_inserter(intersection));
 
-            CGAL::intersection(mod, container, std::back_inserter(intersection));
+            // if (intersection.size() != 1 || intersection.front().has_holes())
+            // {
+            //     Problem tmp(container, {});
+            //     tmp.addCandidate(mod, 1);
+            //     tmp.visualizeSolution();
+            //     exit(0);
+            //     std::cout << "!!!!! not good 152 !!!!!!";
+            // }
 
-            if (intersection.size() != 1 || intersection.front().has_holes())
-            {
-                std::cout << "!!!!! not good 152 !!!!!!";
-            }
-
-            CGAL::difference(intersection.front(), cand, std::back_inserter(difference));
-            
+            // CGAL::difference(intersection.front(), cand, std::back_inserter(difference));
 
             // if (difference.size() != 1 || difference.front().has_holes())
             // {
@@ -179,7 +216,8 @@ SolveStatus LeftLayer::solve(Problem *prob)
             //     temp.visualizeSolution();
             // }
 
-            auto distance = difference.empty() ? 0 : difference.front().outer_boundary().area();
+            // auto distance = difference.empty() ? 0 : difference.front().outer_boundary().area();
+            NT distance = 0;
 
             diff += dif(tms, tdiff);
 
@@ -267,6 +305,8 @@ SolveStatus LeftLayer::solve(Problem *prob)
             bestItem->quantity--;
         }
     }
+
+    // std::cout << 
 
     return SolveStatus::Feasible;
 }

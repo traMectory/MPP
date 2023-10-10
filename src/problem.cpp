@@ -60,6 +60,10 @@ Problem::Problem(char *file_name)
         container.push_back(t);
     }
 
+    int index = 0;
+
+    // items = new std::vector<Item>();
+
     for (auto item : data["items"])
     {
         auto x = item["x"];
@@ -73,25 +77,50 @@ Problem::Problem(char *file_name)
             it.push_back(t);
         }
 
-        items.push_back(Item(it, item["quantity"], item["value"]));
+        items.push_back(new Item(index, it, {}, item["quantity"], item["value"]));
+        index++;
     }
 }
 
-void toIPE(std::string path, Polygon boundary, std::vector<Polygon> polygons)
+void Problem::storeSolution() {
+    std::string vis_name = "../Solutions/" + name + ".json";
+    std::ofstream o(vis_name);
+
+    json output;
+
+    output["type"] = "cgshop2024_solution";
+    
+    output["instance_name"] = name;
+    output["item_indices"] = {};
+    output["x_translations"] = {};
+    output["y_translations"] = {};
+
+    for (Candidate item : candidates) {
+        output["item_indices"].push_back(item.index);
+        output["x_translations"].push_back(item.x_translation.exact());
+        output["y_translations"].push_back(item.y_translation.exact());
+    }
+
+    o << std::setw(4) << output << std::endl;
+    o.close();
+}
+
+void toIPE(std::string path, Polygon boundary, std::vector<Candidate> polygons)
 {
     std::ofstream o(path);
 
     // Find extreme coords of the graph (if you use CGAL you can use inbuild functions instead)
 
-    double xmin, xmax, ymin, ymax;
+    NT xmin, xmax, ymin, ymax;
     for (Point p : boundary.vertices())
     {
-        xmin = std::min(xmin, p.approx().x().pair().first);
-        xmax = std::max(xmax, p.approx().x().pair().first);
-        ymin = std::min(ymin, p.approx().y().pair().first);
-        ymax = std::max(ymax, p.approx().y().pair().first);
+
+        xmin = std::min(xmin, p.x());
+        xmax = std::max(xmax, p.x());
+        ymin = std::min(ymin, p.y());
+        ymax = std::max(ymax, p.y());
     }
-    float scale = std::max(xmax - xmin, ymax - ymin);
+    NT scale = std::max(xmax - xmin, ymax - ymin);
 
     // Header of the IPE File
     o << "<?xml version=\"1.0\"?>\n";
@@ -161,7 +190,7 @@ void toIPE(std::string path, Polygon boundary, std::vector<Polygon> polygons)
 
         bool first = true;
 
-        for (Point v : poly.vertices())
+        for (Point v : poly.poly.vertices())
         {
             o << ((v.x() - xmin) * 560 / scale + 16) << " " << (v.y() * 560 / scale + 272) << " " << (first ? "m" : "l") << "\n";
             first = false;
@@ -220,56 +249,6 @@ void toIPE(std::string path, Polygon boundary, std::vector<Polygon> polygons)
     }
 }
 
-// void Problem::visualize()
-// {
-//     std::vector<Edge> edges;
-//     std::vector<Point> points;
-//     int gap = 10;
-
-//     long long int start_x = 0;
-//     int start_y = 0;
-
-//     for (auto edge : container.edges())
-//     {
-//         Point s = edge.start();
-//         Point t = edge.target();
-
-//         edges.push_back(Edge(Point(s.x(), s.y()), Point(t.x(), t.y())));
-//         points.push_back(Point(s.x(), s.y()));
-//         points.push_back(Point(t.x(), t.y()));
-//     }
-//     start_y -= container.bbox().y_span() * 2;
-
-//     for (Item item : items)
-//     {
-//         for (int i = 0; i < item.quantity; i++)
-//         {
-//             for (auto edge : item.poly.edges())
-//             {
-//                 auto s = edge.start();
-//                 auto t = edge.target();
-
-//                 double sx = s.approx().x().pair().first;
-//                 double sy = s.approx().y().pair().first;
-//                 double tx = t.approx().x().pair().first;
-//                 double ty = t.approx().y().pair().first;
-
-//                 edges.push_back(Edge(Point(sx + start_x, sy + start_y), Point(tx + start_x, ty + start_y)));
-//                 points.push_back(Point(sx + start_x, sy + start_y));
-//                 points.push_back(Point(tx + start_x, ty + start_y));
-//             }
-
-//             start_x += item.poly.bbox().x_span() + gap;
-//         }
-//     }
-
-//     std::string path = name + ".ipe";
-
-//     toIPE(path, edges, points);
-//     // vis_name += name;
-//     // vis_name += ".ipe";
-// }
-
 void Problem::visualizeSolution()
 {
     std::vector<Edge> edges;
@@ -280,27 +259,27 @@ void Problem::visualizeSolution()
         Point s = edge.start();
         Point t = edge.target();
 
-        double sx = s.approx().x().pair().first;
-        double sy = s.approx().y().pair().first;
-        double tx = t.approx().x().pair().first;
-        double ty = t.approx().y().pair().first;
+            NT sx = s.x();
+            NT sy = s.y();
+            NT tx = t.x();
+            NT ty = t.y();
 
         edges.push_back(Edge(Point(sx, sy), Point(tx, ty)));
         points.push_back(Point(sx, sy));
         points.push_back(Point(tx, ty));
     }
 
-    for (Polygon candidate : candidates)
+    for (Candidate candidate : candidates)
     {
-        for (auto edge : candidate.edges())
+        for (auto edge : candidate.poly.edges())
         {
             Point s = edge.start();
             Point t = edge.target();
 
-            double sx = s.approx().x().pair().first;
-            double sy = s.approx().y().pair().first;
-            double tx = t.approx().x().pair().first;
-            double ty = t.approx().y().pair().first;
+            NT sx = s.x();
+            NT sy = s.y();
+            NT tx = t.x();
+            NT ty = t.y();
 
             edges.push_back(Edge(Point(sx, sy), Point(tx, ty)));
             points.push_back(Point(sx, sy));

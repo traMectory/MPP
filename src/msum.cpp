@@ -1,12 +1,13 @@
 #include "msum.h"
 
-bool compareItems(Item i1, Item i2)
+bool compareItems(Item *i1, Item *i2)
 {
-    return i1.poly.area() > i2.poly.area();
+    return i1->poly.area() > i2->poly.area();
 };
 
 SolveStatus Msum::solve(Problem *prob)
 {
+    std::cout << "msum\n";
     // Point p(0, 0.3), q, r(2, 0.9);
 
     // {
@@ -41,82 +42,123 @@ SolveStatus Msum::solve(Problem *prob)
     Polygon_with_holes target(outer_target);
     target.add_hole(container);
 
-    std::vector<Item> copyItems = prob->getItems();
+    std::vector<Item *> copyItems = prob->getItems();
 
     std::sort(copyItems.begin(), copyItems.end(), compareItems);
+
     CGAL::Polygon_vertical_decomposition_2<K> ssab_decomp;
 
+    // std::cout << "2\n";
     int count = 0;
     int num_items = 0;
-    for (Item item : copyItems) {
-        num_items += item.quantity;
+    for (Item *item : copyItems)
+    {
+        num_items += item->quantity;
     }
 
-    for (Item item : copyItems)
+    std::cout << "total number of items: " << num_items << std::endl;
+
+    for (Item *item : copyItems)
     {
-        std::cout << "(" << count<<"/" << num_items << ")" << " q: " << item.quantity << ", v: " << item.value << ", v/a: " << (item.value / item.poly.area());
-        count += item.quantity;
-        for (int i = 0; i < item.quantity; i++)
+        if (item->quantity == 0)
+            continue;
+
+        // std::cout << "(" << count << "/" << num_items << ")"
+        //           << " q: " << item->quantity << ", v: " << item->value << ", v/a: " << (item->value / item->poly.area());
+        count += item->quantity;
+
+        Polygon inverse;
+        Point left = item->poly.left_vertex()[0];
+
+        for (int i = 0; i < item->poly.size(); i++)
         {
+            Point p = item->poly.vertices()[i];
+            auto newP = p - left;
+            inverse.push_back(Point(-newP.x(), -newP.y()));
+        }
 
-            Polygon inverse;
-            Point left = item.poly.left_vertex()[0];
+        Polygon_with_holes sum = CGAL::minkowski_sum_2(target, inverse, ssab_decomp);
 
-            for (int i = 0; i < item.poly.size(); i++)
+        Pwh_list freeSpace;
+        for (Polygon hole : sum.holes())
+        {
+            freeSpace.push_back(Polygon_with_holes(hole));
+        }
+
+        for (Candidate candidate : prob->getCandidates())
+        {
+            Polygon_with_holes sum2 = CGAL::minkowski_sum_2(candidate.poly, inverse);
+
+            Pwh_list intR;
+            for (Polygon_with_holes free : freeSpace)
             {
-                Point p = item.poly.vertices()[i];
-                auto newP = p - left;
-                inverse.push_back(Point(-newP.x(), -newP.y()));
+                CGAL::difference(free, sum2, std::back_inserter(intR));
             }
 
-            Polygon_with_holes sum = CGAL::minkowski_sum_2(target, inverse, ssab_decomp);
+            freeSpace = intR;
+        }
 
-            if (sum.has_holes())
+        if (freeSpace.empty())
+        {
+            continue;
+        }
+
+        while (item->quantity > 0)
+        // for (int i = 0; i < item->quantity; i++)
+        {
+            Candidate cand;
+            Point t = item->poly.vertices()[0];
+            Point l = freeSpace.front().outer_boundary().left_vertex()[0];
+            auto trans = l - left;
+
+            for (Point v : item->poly)
             {
-                Pwh_list freeSpace;
-                for (Polygon hole : sum.holes())
+                cand.poly.push_back(v + trans);
+            }
+            cand.index = item->index;
+            cand.x_translation = trans.x();
+            cand.y_translation = trans.y();
+
+            // if (item->inners.empty())
+
+
+            prob->addCandidate(cand, item->value);
+
+            // for (Polygon inner : item->inners)
+            // {
+            //     Polygon innerCand;
+            //     for (Point v : inner)
+            //     {
+            //         innerCand.push_back(v + trans);
+            //     }
+            //     prob->addCandidate(innerCand, 0);
+            // }
+
+            // std::cout << " added";
+            item->quantity--;
+
+            if (item->quantity > 0)
+            {
+                Polygon_with_holes sum2 = CGAL::minkowski_sum_2(cand.poly, inverse);
+                Pwh_list intR;
+                for (Polygon_with_holes free : freeSpace)
                 {
-                    freeSpace.push_back(Polygon_with_holes(hole));
+                    CGAL::difference(free, sum2, std::back_inserter(intR));
                 }
 
-                for (Polygon candidate : prob->getCandidates())
-                {
-                    Polygon_with_holes sum2 = CGAL::minkowski_sum_2(candidate, inverse);
-
-                    Pwh_list intR;
-                    for (Polygon_with_holes free : freeSpace)
-                    {
-                        CGAL::difference(free, sum2, std::back_inserter(intR));
-                    }
-
-                    freeSpace = intR;
-                }
+                freeSpace = intR;
 
                 if (freeSpace.empty())
                 {
-                    continue;
+                    break;
                 }
-
-                Polygon cand;
-                Point t = item.poly.vertices()[0];
-                Point l = freeSpace.front().outer_boundary().left_vertex()[0];
-                auto trans = l - left;
-
-                for (Point v : item.poly)
-                {
-                    cand.push_back(v + trans);
-                }
-
-                prob->addCandidate(cand, item.value);
-
-                std::cout << " added";
             }
         }
-        std::cout << std::endl;
+        // std::cout << std::endl;
         // break;
     }
-    std::cout << "doei\n";
+    // std::cout << "doei\n";
 
-    prob->visualizeSolution();
+    // prob->visualizeSolution();
     return SolveStatus::Feasible;
 }
