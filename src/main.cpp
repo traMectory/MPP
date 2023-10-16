@@ -24,6 +24,11 @@ int main(int argc, char **argv)
         LeftLayerOne solver = LeftLayerOne();
         solver.solve(&problem);
     }
+    else if (algorithm == 3)
+    {
+        Topos solver = Topos();
+        solver.solve(&problem);
+    }
 
     problem.prettyPrint();
 
