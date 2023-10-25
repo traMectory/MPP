@@ -142,7 +142,6 @@ bool Topos::bestPlacement(Polygon &placed, Polygon &next, Polygon &leftContainer
         Point p = next.vertices()[i];
         inverseNext.push_back(Point(-p.x(), -p.y()));
     }
-
     //Calculate polygon in which the new piece can be placed
     noFitLeft = CGAL::minkowski_sum_2(leftContainer, inverseNext);
     //toIPE("test.ipe", noFitLeft.outer_boundary(), { leftContainer, next });
@@ -158,12 +157,14 @@ bool Topos::bestPlacement(Polygon &placed, Polygon &next, Polygon &leftContainer
         return false;
     
     Polygon outerBounds = noFitContainer.holes().at(0);
+    outerBounds.reverse_orientation();
 
     //toIPE("test.ipe", noFitLeft.outer_boundary(), { outerBounds, next });
 
     //Calculate No-Fit Polygon around previously placed pieces
-    std::vector<Point> possiblePositions;
+    std::list<Point> possiblePositions;
     std::vector<Polygon_with_holes> possibleAreas;
+    std::vector<Polygon_with_holes>::const_iterator  it;
     if (!placed.is_empty()) {
         noFitPlaced = CGAL::minkowski_sum_2(placed, inverseNext);
         CGAL::difference(outerBounds, noFitPlaced, std::back_inserter(possibleAreas));
@@ -185,14 +186,79 @@ bool Topos::bestPlacement(Polygon &placed, Polygon &next, Polygon &leftContainer
 
     if (possiblePositions.empty())
         return false;
-    //TODO find best position from all possible, for now first one found is used
-    translation = possiblePositions[0];
+
+
+    //find best position from all possible according to placement policy
+    NT max = -1;
+    Point bestPos;
+    for (auto pos: possiblePositions)
+    {
+        NT eval = evalPlacement(placed, next, pos, leftContainer, rightContainer);
+        if (eval > max) {
+            max = eval;
+            bestPos = pos;
+        }
+    }
+    translation = bestPos;
+
     return true;
 }
 
-float Topos::evalPlacement(Polygon& placed, Polygon& next, Point &position ,Polygon& leftContainer, Polygon& rightContainer) {
-    //TODO evaluate quality of placing given piece at this position
-    return 1.0;
+NT Topos::evalPlacement(Polygon& placed, Polygon& next, Point &position ,Polygon& leftContainer, Polygon& rightContainer) {
+    //evaluate quality of placing given piece at this position
+    switch (placementPolicy)
+    {
+    case WASTE:
+    {
+        //use difference in size of new and old bounding boxes of placed pieces
+        if (placed.is_empty() || next.is_empty())
+            return 0;
+        const Iso_rectangle plBB(placed.bbox());
+        const Bbox nxBB = next.bbox();
+        const Iso_rectangle combinedBB(Point(std::min(NT(plBB.xmin()), nxBB.xmin() + position.x()),
+            std::min(NT(plBB.ymin()), nxBB.ymin() + position.y())),
+            Point(std::max(NT(plBB.xmax()), nxBB.xmax() + position.x()),
+            std::max(NT(plBB.ymax()), nxBB.ymax() + position.y())));
+        return 1.0 / (combinedBB.area() - plBB.area() + 1);
+    }
+    case OVERLAP:
+    {
+        //use overlap between bounding boxes of next piece and the ones already placed
+        if (placed.is_empty() || next.is_empty())
+            return 0;
+        const Bbox nxBB = next.bbox();
+        const Point nxMin(nxBB.xmin() + position.x(), nxBB.ymin() + position.y());
+        const Point nxMax(nxBB.xmax() + position.x(), nxBB.ymax() + position.y());
+        const auto result = CGAL::intersection(Iso_rectangle(placed.bbox()), Iso_rectangle(nxMin, nxMax));
+        Iso_rectangle rectOverlap;
+        if (result) {
+            if(const Iso_rectangle * overlap = boost::get<Iso_rectangle>(&*result)) {
+                return overlap->area();
+            }
+        else {
+                throw std::invalid_argument("Cannot cast to Iso_rectangle");
+            }
+        }
+        else {
+            return 0;
+        }
+    }
+    case DISTANCE:
+    {
+        //use (squared) distance between center of bounding boxes of placed pieces and next
+        if (placed.is_empty() || next.is_empty())
+            return 0;
+        const Bbox plBB = placed.bbox();
+        const Bbox nxBB = next.bbox();
+        const Point plCenter(plBB.xmin() + 0.5 * (plBB.xmax() - plBB.xmin()),
+            plBB.ymin() + 0.5 * (plBB.ymax() - plBB.ymin()));
+        const Point nxCenter(plBB.xmin() + position.x() + 0.5 * (plBB.xmax() - plBB.xmin()),
+            plBB.ymin() + position.y() + 0.5 * (plBB.ymax() - plBB.ymin()));
+        return 1.0 / (CGAL::squared_distance(plCenter, nxCenter) + 1);
+    }
+    default:
+        throw std::invalid_argument("No valid placement policy chosen");
+    }
 }
 
 SolveStatus Topos::solve(Problem* prob)
@@ -245,7 +311,7 @@ SolveStatus Topos::solve(Problem* prob)
     while (itemList.size() > 0) {
 
         //iterate all pieces and find best candidate for next placement
-        float max = .0;
+        NT max = -1;
         Item* bestPiece;
         Point bestPiecePlacement;
         for (auto item : itemList)
@@ -256,14 +322,14 @@ SolveStatus Topos::solve(Problem* prob)
                 continue;
 
             //check if tested piece has better evaluation than previous best
-            float eval = evalPlacement(placedPieces, item->poly, placement, leftContainer, rightContainer);
+            NT eval = evalPlacement(placedPieces, item->poly, placement, leftContainer, rightContainer);
             if (eval > max) {
                 max = eval;
                 bestPiece = item;
                 bestPiecePlacement = placement;
             }
 
-            //for now use first possible placement
+            //for now use first possible piece
             break;
         }
 
@@ -301,7 +367,7 @@ SolveStatus Topos::solve(Problem* prob)
         }
 
         counter++;
-        if (counter > 10)
+        if (counter > 25)
             break;
     }
 
