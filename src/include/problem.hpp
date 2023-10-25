@@ -16,7 +16,7 @@
 
 using json = nlohmann::json;
 
-typedef CGAL::Lazy_exact_nt<long long> NT;
+typedef CGAL::Lazy_exact_nt<CGAL::Quotient<CGAL::MP_Float>> NT;
 // typedef CGAL::Exact_predicates_exact_constructions_kernel K;
 typedef CGAL::Cartesian<NT> K;
 typedef CGAL::Polygon_with_holes_2<K> Polygon_with_holes;
@@ -26,6 +26,7 @@ typedef Polygon::Edge_const_iterator EdgeIterator;
 typedef K::Point_2 Point;
 typedef K::Segment_2 Segment;
 typedef CGAL::Bbox_2 Bbox;
+typedef CGAL::Iso_rectangle_2<K> Iso_rectangle;
 
 struct Edge
 {
