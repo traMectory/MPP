@@ -119,7 +119,7 @@ void toIPE(std::string path, Polygon boundary, std::vector<Polygon> polygons)
     }
 }
 
-bool Topos::bestPlacement(Polygon &placed, Polygon &next, Polygon &leftContainer, Polygon &rightContainer, Point &translation) {
+bool Topos::bestPlacement(std::vector<Polygon>& placed, Polygon& next, Polygon& leftContainer, Polygon& rightContainer, Point& translation) {
     /// <summary>
     /// finds the best placement for next piece, given current configuration
     /// </summary>
@@ -131,7 +131,7 @@ bool Topos::bestPlacement(Polygon &placed, Polygon &next, Polygon &leftContainer
     /// <returns>wheter or not a valid placement was found</returns>
     Polygon_with_holes noFitLeft;
     Polygon_with_holes noFitRight;
-    Polygon_with_holes noFitPlaced;
+    std::list<Polygon_with_holes> noFitPlaced;
 
     //toIPE("test.ipe", next, { leftContainer, rightContainer });
 
@@ -152,10 +152,10 @@ bool Topos::bestPlacement(Polygon &placed, Polygon &next, Polygon &leftContainer
     CGAL::join(noFitLeft, noFitRight, noFitContainer);
 
 
-    if(noFitContainer.number_of_holes() == 0)
+    if (noFitContainer.number_of_holes() == 0)
         //no space for polygon inside container
         return false;
-    
+
     Polygon outerBounds = noFitContainer.holes().at(0);
     outerBounds.reverse_orientation();
 
@@ -164,19 +164,55 @@ bool Topos::bestPlacement(Polygon &placed, Polygon &next, Polygon &leftContainer
     //Calculate No-Fit Polygon around previously placed pieces
     std::list<Point> possiblePositions;
     std::vector<Polygon_with_holes> possibleAreas;
-    std::vector<Polygon_with_holes>::const_iterator  it;
-    if (!placed.is_empty()) {
-        noFitPlaced = CGAL::minkowski_sum_2(placed, inverseNext);
-        CGAL::difference(outerBounds, noFitPlaced, std::back_inserter(possibleAreas));
-        if (!possibleAreas.empty()) {
-            for (auto poly : possibleAreas) {
-                for (auto v : poly.outer_boundary()) {
-                    possiblePositions.push_back(Point(v.x(), v.y()));
-                }
+    //std::vector<Polygon_with_holes>::const_iterator  it;
+
+    //calculate No-Fit polygon for each separate part of placed pieces
+    for (auto part : placed)
+    {
+        if (!part.is_empty()) {
+            noFitPlaced.push_back(CGAL::minkowski_sum_2(part, inverseNext));
+        }
+    }
+
+    //combine overlapping No-Fit polygons
+    std::list<Polygon_with_holes>::iterator it = noFitPlaced.begin();
+    bool noOverlap;
+    while (it != noFitPlaced.end())
+    {
+        noOverlap = true;
+        std::list<Polygon_with_holes>::iterator it2 = std::next(it);
+        while (it2 != noFitPlaced.end())
+        {
+            Polygon_with_holes unionR;
+            if (CGAL::join(*it, *it2, unionR)) {
+                noFitPlaced.push_back(unionR);
+                noFitPlaced.erase(it2);
+                it = noFitPlaced.erase(it);
+                noOverlap = false;
+                break;
+            }
+            ++it2;
+        }
+        if (noOverlap)
+            ++it;
+    }
+
+    //find parts of the No-Fit polygons that are inside container
+    for (auto part : noFitPlaced)
+    {
+        CGAL::difference(outerBounds, part, std::back_inserter(possibleAreas));
+    }
+
+    //add vertices of remaining areas to possible positions
+    if (!possibleAreas.empty()) {
+        for (auto poly : possibleAreas) {
+            for (auto v : poly.outer_boundary()) {
+                possiblePositions.push_back(Point(v.x(), v.y()));
             }
         }
     }
-    else
+
+    if (placed.empty())
     {
         for (auto v : outerBounds.vertices()) {
             possiblePositions.push_back(Point(v.x(), v.y()));
@@ -191,7 +227,7 @@ bool Topos::bestPlacement(Polygon &placed, Polygon &next, Polygon &leftContainer
     //find best position from all possible according to placement policy
     NT max = -1;
     Point bestPos;
-    for (auto pos: possiblePositions)
+    for (auto pos : possiblePositions)
     {
         NT eval = evalPlacement(placed, next, pos, leftContainer, rightContainer);
         if (eval > max) {
@@ -204,57 +240,68 @@ bool Topos::bestPlacement(Polygon &placed, Polygon &next, Polygon &leftContainer
     return true;
 }
 
-NT Topos::evalPlacement(Polygon& placed, Polygon& next, Point &position ,Polygon& leftContainer, Polygon& rightContainer) {
+NT Topos::evalPlacement(std::vector<Polygon>& placed, Polygon& next, Point& position, Polygon& leftContainer, Polygon& rightContainer) {
     //evaluate quality of placing given piece at this position
     switch (placementPolicy)
     {
     case WASTE:
     {
         //use difference in size of new and old bounding boxes of placed pieces
-        if (placed.is_empty() || next.is_empty())
+        if (placed.size() <= 0 || next.is_empty())
             return 0;
-        const Iso_rectangle plBB(placed.bbox());
-        const Bbox nxBB = next.bbox();
-        const Iso_rectangle combinedBB(Point(std::min(NT(plBB.xmin()), nxBB.xmin() + position.x()),
-            std::min(NT(plBB.ymin()), nxBB.ymin() + position.y())),
-            Point(std::max(NT(plBB.xmax()), nxBB.xmax() + position.x()),
-            std::max(NT(plBB.ymax()), nxBB.ymax() + position.y())));
-        return 1.0 / (combinedBB.area() - plBB.area() + 1);
+        NT oldBB = 0;
+        NT newBB = 0;
+        for (auto pl : placed) {
+            const Iso_rectangle plBB(pl.bbox());
+            const Bbox nxBB = next.bbox();
+            const Iso_rectangle combinedBB(Point(std::min(NT(plBB.xmin()), nxBB.xmin() + position.x()),
+                std::min(NT(plBB.ymin()), nxBB.ymin() + position.y())),
+                Point(std::max(NT(plBB.xmax()), nxBB.xmax() + position.x()),
+                    std::max(NT(plBB.ymax()), nxBB.ymax() + position.y())));
+            oldBB += plBB.area();
+            newBB += combinedBB.area();
+        }
+        return 1.0 / (newBB - oldBB + 1);
     }
     case OVERLAP:
     {
         //use overlap between bounding boxes of next piece and the ones already placed
-        if (placed.is_empty() || next.is_empty())
+        if (placed.size() <= 0 || next.is_empty())
             return 0;
-        const Bbox nxBB = next.bbox();
-        const Point nxMin(nxBB.xmin() + position.x(), nxBB.ymin() + position.y());
-        const Point nxMax(nxBB.xmax() + position.x(), nxBB.ymax() + position.y());
-        const auto result = CGAL::intersection(Iso_rectangle(placed.bbox()), Iso_rectangle(nxMin, nxMax));
-        Iso_rectangle rectOverlap;
-        if (result) {
-            if(const Iso_rectangle * overlap = boost::get<Iso_rectangle>(&*result)) {
-                return overlap->area();
-            }
-        else {
-                throw std::invalid_argument("Cannot cast to Iso_rectangle");
+        NT sumOverlap = 0;
+        for (auto pl : placed) {
+            const Bbox nxBB = next.bbox();
+            const Point nxMin(nxBB.xmin() + position.x(), nxBB.ymin() + position.y());
+            const Point nxMax(nxBB.xmax() + position.x(), nxBB.ymax() + position.y());
+            const auto result = CGAL::intersection(Iso_rectangle(pl.bbox()), Iso_rectangle(nxMin, nxMax));
+            Iso_rectangle rectOverlap;
+            if (result) {
+                if (const Iso_rectangle* overlap = boost::get<Iso_rectangle>(&*result)) {
+                    sumOverlap += overlap->area();
+                }
+                else {
+                    throw std::invalid_argument("Cannot cast to Iso_rectangle");
+                }
             }
         }
-        else {
-            return 0;
-        }
+        return sumOverlap;
     }
     case DISTANCE:
     {
         //use (squared) distance between center of bounding boxes of placed pieces and next
-        if (placed.is_empty() || next.is_empty())
+        if (placed.size() <= 0 || next.is_empty())
             return 0;
-        const Bbox plBB = placed.bbox();
-        const Bbox nxBB = next.bbox();
-        const Point plCenter(plBB.xmin() + 0.5 * (plBB.xmax() - plBB.xmin()),
-            plBB.ymin() + 0.5 * (plBB.ymax() - plBB.ymin()));
-        const Point nxCenter(plBB.xmin() + position.x() + 0.5 * (plBB.xmax() - plBB.xmin()),
-            plBB.ymin() + position.y() + 0.5 * (plBB.ymax() - plBB.ymin()));
-        return 1.0 / (CGAL::squared_distance(plCenter, nxCenter) + 1);
+        NT sumDist = 0;
+        for (auto pl : placed) {
+            const Bbox plBB = pl.bbox();
+            const Bbox nxBB = next.bbox();
+            const Point plCenter(plBB.xmin() + 0.5 * (plBB.xmax() - plBB.xmin()),
+                plBB.ymin() + 0.5 * (plBB.ymax() - plBB.ymin()));
+            const Point nxCenter(plBB.xmin() + position.x() + 0.5 * (plBB.xmax() - plBB.xmin()),
+                plBB.ymin() + position.y() + 0.5 * (plBB.ymax() - plBB.ymin()));
+            sumDist += CGAL::squared_distance(plCenter, nxCenter) + 1;
+        }
+        return 1.0 / (sumDist + 1);
     }
     default:
         throw std::invalid_argument("No valid placement policy chosen");
@@ -263,12 +310,12 @@ NT Topos::evalPlacement(Polygon& placed, Polygon& next, Point &position ,Polygon
 
 SolveStatus Topos::solve(Problem* prob)
 {
-    CGAL::set_warning_behaviour(CGAL::CONTINUE);
 
-    Polygon placedPieces; //outer boundary of previously placed pieces
+    //outer boundaries of previously placed pieces, each element is one connected part to keep polygons simple
+    std::vector<Polygon> placedPieces;
 
-	Polygon container = prob->getContainer();
-	int wall = 10e6;
+    Polygon container = prob->getContainer();
+    int wall = 10e6;
 
 
     //split container into left and right portion
@@ -283,7 +330,7 @@ SolveStatus Topos::solve(Problem* prob)
 
     leftContainer.push_back(Point(bottom->x(), bottom->y() - wall));
 
-    for (auto v = bottom; v != top; v = v==container.begin() ? container.end()-1 : v-1) {
+    for (auto v = bottom; v != top; v = v == container.begin() ? container.end() - 1 : v - 1) {
         leftContainer.push_back(Point(v->x(), v->y()));
     }
     leftContainer.push_back(Point(top->x(), top->y()));
@@ -295,7 +342,7 @@ SolveStatus Topos::solve(Problem* prob)
 
     rightContainer.push_back(Point(top->x(), top->y() + wall));
 
-    for (auto v = top; v != bottom; v = v == container.begin() ? container.end()-1 : v-1) {
+    for (auto v = top; v != bottom; v = v == container.begin() ? container.end() - 1 : v - 1) {
         rightContainer.push_back(Point(v->x(), v->y()));
     }
     rightContainer.push_back(Point(bottom->x(), bottom->y()));
@@ -305,7 +352,7 @@ SolveStatus Topos::solve(Problem* prob)
 
 
     std::vector<Item*> copyItems = prob->getItems();
-	std::list<Item*> itemList(copyItems.begin(), copyItems.end());
+    std::list<Item*> itemList(copyItems.begin(), copyItems.end());
 
     int counter = 0;
     while (itemList.size() > 0) {
@@ -356,18 +403,24 @@ SolveStatus Topos::solve(Problem* prob)
         if (bestPiece->quantity <= 0)
             itemList.remove(bestPiece);
 
+        bool connected = false;
         //update placed pieces, ignore holes that were created
         if (placedPieces.size() > 0) {
-            Polygon_with_holes newPlaced;
-            CGAL::join(placedPieces, cand.poly, newPlaced);
-            placedPieces = newPlaced.outer_boundary();
+            for (size_t i = 0; i < placedPieces.size(); i++) {
+                Polygon_with_holes newPlaced;
+                if (CGAL::join(placedPieces[i], cand.poly, newPlaced) && newPlaced.outer_boundary().is_simple()) {
+                    placedPieces[i] = newPlaced.outer_boundary();
+                    connected = true;
+                    break;
+                }
+            }
         }
-        else {
-            placedPieces = cand.poly;
+        if (!connected) {
+            placedPieces.push_back(cand.poly);
         }
 
         counter++;
-        if (counter > 25)
+        if (counter >= 3)
             break;
     }
 
@@ -375,7 +428,7 @@ SolveStatus Topos::solve(Problem* prob)
 
     /*
     //toIPE("test.ipe", container, { leftContainer, rightContainer });
-    
+
     Polygon p1;
 
     //p1.push_back(Point(18195190, 24793702));
@@ -400,7 +453,7 @@ SolveStatus Topos::solve(Problem* prob)
 
     toIPE("test.ipe", container,  { p1, p2 });
 
-	CGAL::minkowski_sum_2(p2, p1);
+    CGAL::minkowski_sum_2(p2, p1);
 
-	return SolveStatus::Unsolved;*/
+    return SolveStatus::Unsolved;*/
 }
