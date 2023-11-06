@@ -26,7 +26,7 @@ int main(int argc, char **argv)
     }
     else if (algorithm == 3)
     {
-        Topos solver = Topos();
+        Toposv2 solver = Toposv2();
         solver.solve(&problem);
     }
 

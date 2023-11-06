@@ -7,7 +7,7 @@
 #include "leftlayerone.h"
 #include "combine.h"
 #include "miscellaneous.h"
-#include "topos.h"
+#include "toposv2.h"
 
 #include <catch2/catch_session.hpp>
 

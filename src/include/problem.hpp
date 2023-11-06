@@ -27,6 +27,7 @@ typedef K::Point_2 Point;
 typedef K::Segment_2 Segment;
 typedef CGAL::Bbox_2 Bbox;
 typedef CGAL::Iso_rectangle_2<K> Iso_rectangle;
+typedef Polygon::Vertex_circulator VertexCirculator;
 
 struct Edge
 {
