@@ -1,24 +1,24 @@
 #include "leftlayerone.h"
 
-#define tms std::chrono::high_resolution_clock::now()
-#define dif(a, b) std::chrono::duration_cast<std::chrono::microseconds>(a - b)
-#define difp(a, b) std::chrono::duration_cast<std::chrono::microseconds>(a + b)
+bool compareItemsArea(Item *i1, Item *i2)
+{
+    return i1->poly.area() < i2->poly.area();
+};
 
 SolveStatus LeftLayerOne::solve(Problem *prob)
 {
-    auto total = tms;
+    prob->addComment("Algorithm: leftlayer");
+    prob->addComment("Sorting: area inc");
 
-    auto diff = dif(total, total);
     long int inter = 0;
-    auto tsum = dif(total, total);
 
     Polygon container = prob->getContainer();
 
-    NT wall = 10e6;
+    NT wall = 10e5;
 
     std::vector<Item *> copyItems = prob->getItems();
 
-    // std::sort(copyItems.begin(), copyItems.end(), compareItems);
+    std::sort(copyItems.begin(), copyItems.end(), compareItemsArea);
 
     // std::cout << "2\n";
     int count = 0;
@@ -73,20 +73,25 @@ SolveStatus LeftLayerOne::solve(Problem *prob)
         target.push_back(Point(container[i < 0 ? i + container.size() : i].x(), container[i < 0 ? i + container.size() : i].y()));
         target.push_back(Point(container.bbox().xmax() + wall, container.bbox().ymin() - wall + 1));
 
+        // Problem test(target, {});
+        // test.visualizeSolution();
+        // break;
+
         // std::cout << target.is_simple() << std::endl;
 
         // Problem temp(target, {});
         // temp.visualizeSolution();
 
         // for (int i = 0< container.size(); i++) {
-        //     target.push_ba; i ck(container.right_vertex()[i]);
+        //     target.push_back(container.right_vertex()[i]);
         // }
 
         // target.add_hole(container);
 
         added = false;
 
-        auto bestDistance = 10e20 * CGAL::squared_distance(Point(0, 0), Point(0, 1));
+        auto bestDistance = 10e8 * CGAL::squared_distance(Point(0, 0), Point(0, 1));
+        Point bestTrans;
         Polygon bestCand;
         Polygon bestMod;
         Item *bestItem;
@@ -112,9 +117,7 @@ SolveStatus LeftLayerOne::solve(Problem *prob)
                 inverse.push_back(Point(-newP.x(), -newP.y()));
             }
 
-            auto ssum = tms;
             Polygon_with_holes sum = CGAL::minkowski_sum_2(target, inverse);
-            tsum += dif(tms, ssum);
 
             // Problem tmp(outer_target, {});
             // tmp.addCandidate(container, 1);
@@ -142,6 +145,7 @@ SolveStatus LeftLayerOne::solve(Problem *prob)
 
             if (freeSpace.empty())
             {
+                item->quantity = 0;
                 continue;
             }
 
@@ -156,13 +160,11 @@ SolveStatus LeftLayerOne::solve(Problem *prob)
                 cand.push_back(v + trans);
             }
 
-            auto tdiff = tms;
-
             Polygon mod;
 
-            Point top = Point(10e25, -10e25);
+            Point top = Point(10e10, -10e10);
             int top_i;
-            Point bottom = Point(10e25, 10e25);
+            Point bottom = Point(10e10, 10e10);
             int bottom_i;
 
             for (int i = 0; i < cand.size(); i++)
@@ -198,7 +200,7 @@ SolveStatus LeftLayerOne::solve(Problem *prob)
 
             // if (intersection.size() != 1 || intersection.front().has_holes())
             // {
-            //     Problem tmp(container, {});
+            //     Problem tmp(containecandr, {});
             //     tmp.addCandidate(mod, 1);
             //     tmp.visualizeSolution();
             //     exit(0);
@@ -218,8 +220,6 @@ SolveStatus LeftLayerOne::solve(Problem *prob)
 
             // auto distance = difference.empty() ? 0 : difference.front().outer_boundary().area();
             NT distance = 0;
-
-            diff += dif(tms, tdiff);
 
             // std::cout << "1 " << cand.vertices().size() << "\n";
 
@@ -267,6 +267,7 @@ SolveStatus LeftLayerOne::solve(Problem *prob)
                 bestCand = cand;
                 bestItem = item;
                 bestMod = mod;
+                bestTrans = Point(trans.x(), trans.y());
                 added = true;
                 break;
             }
@@ -300,7 +301,10 @@ SolveStatus LeftLayerOne::solve(Problem *prob)
 
             // prob->addCandidate(mod, 1);
             Candidate bestC;
+            bestC.index = bestItem->index;
             bestC.poly = bestCand;
+            bestC.x_translation = (int) (bestTrans.x().interval().pair().first + bestTrans.x().interval().pair().second) / 2;
+            bestC.y_translation = (int) (bestTrans.y().interval().pair().first + bestTrans.y().interval().pair().second) / 2;
             prob->addCandidate(bestC, bestItem->value);
             bestItem->quantity--;
         }

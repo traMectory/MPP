@@ -1,13 +1,20 @@
 #include "main.h"
 
+#define tms std::chrono::high_resolution_clock::now()
+#define dif(a, b) std::chrono::duration_cast<std::chrono::milliseconds>(a - b)
+
 int main(int argc, char **argv)
 {
     parseOptions(argc, argv);
 
     Problem problem = Problem(argv[1]);
 
+    problem.roundItems();
+
 
     // Problem problem = Problem(argv[1]);
+
+    auto start = tms;
 
     if (algorithm == 0)
     {
@@ -16,18 +23,17 @@ int main(int argc, char **argv)
     }
     else if (algorithm == 1)
     {
-        LeftLayer solver = LeftLayer();
-        solver.solve(&problem);
-    }
-    else if (algorithm == 2)
-    {
         LeftLayerOne solver = LeftLayerOne();
         solver.solve(&problem);
     }
+    
+    auto time = dif(tms, start);
+    problem.addComment("Time: " + std::to_string(time.count()) + "ms");
+    problem.addComment("Score: " + std::to_string(problem.getScore()));
 
     problem.prettyPrint();
 
-    problem.storeSolution();
+    problem.storeSolution(argv[2]);
 
     if (visualize)
         problem.visualizeSolution();
