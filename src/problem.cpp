@@ -97,8 +97,8 @@ void Problem::storeSolution() {
 
     for (Candidate item : candidates) {
         output["item_indices"].push_back(item.index);
-        output["x_translations"].push_back(item.x_translation.exact());
-        output["y_translations"].push_back(item.y_translation.exact());
+        // output["x_translations"].push_back(item.x_translation.exact().numerator().doubleValue()/item.x_translation.exact().denominator().doubleValue());
+        // output["y_translations"].push_back(item.y_translation.exact().numerator().doubleValue()/item.y_translation.exact().denominator().doubleValue());
     }
 
     o << std::setw(4) << output << std::endl;

@@ -16,7 +16,7 @@
 
 using json = nlohmann::json;
 
-typedef CGAL::Lazy_exact_nt<long long> NT;
+typedef CGAL::Lazy_exact_nt<CGAL::Quotient<CORE::BigRat>> NT;
 // typedef CGAL::Exact_predicates_exact_constructions_kernel K;
 typedef CGAL::Cartesian<NT> K;
 typedef CGAL::Polygon_with_holes_2<K> Polygon_with_holes;
