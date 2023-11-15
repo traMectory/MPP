@@ -119,7 +119,7 @@ void toIPE2(std::string path, Polygon boundary, std::vector<Polygon> polygons)
     }
 }
 
-bool Toposv2::bestPlacement(Polygon& next, Polygon& leftContainer, Polygon& rightContainer, Point& translation) {
+bool Toposv2::bestPlacement(Polygon& next, Polygon& leftContainer, Polygon& rightContainer,std::vector<Iso_rectangle>& bBoxes, Iso_rectangle& placedBBox , Point& translation, NT& bestEval) {
     /// <summary>
     /// finds the best placement for next piece, given current configuration
     /// </summary>
@@ -131,9 +131,9 @@ bool Toposv2::bestPlacement(Polygon& next, Polygon& leftContainer, Polygon& righ
     /// <returns>wheter or not a valid placement was found</returns>
     Polygon_with_holes noFitLeft;
     Polygon_with_holes noFitRight;
-
+    
     //toIPE("test.ipe", next, { leftContainer, rightContainer });
-
+    
     Polygon inverseNext;
 
     for (int i = 0; i < next.size(); i++)
@@ -173,15 +173,15 @@ bool Toposv2::bestPlacement(Polygon& next, Polygon& leftContainer, Polygon& righ
     if (possiblePositions.empty())
         return false;
 
-
+    
     //find best position from all possible according to placement policy
-    NT max = -1;
+    bestEval = 10e40;
     Point bestPos;
     for (auto pos : possiblePositions)
     {
-        NT eval = evalPlacement( next, pos, leftContainer, rightContainer);
-        if (eval > max) {
-            max = eval;
+        NT eval = evalPlacement(next, pos, leftContainer, rightContainer, bBoxes, placedBBox);
+        if (eval < bestEval) {
+            bestEval = eval;
             bestPos = pos;
         }
     }
@@ -190,28 +190,269 @@ bool Toposv2::bestPlacement(Polygon& next, Polygon& leftContainer, Polygon& righ
     return true;
 }
 
-NT Toposv2::evalPlacement(Polygon& next, Point& position, Polygon& leftContainer, Polygon& rightContainer) {
+NT Toposv2::evalPlacement(Polygon& next, Point& position, Polygon& leftContainer, Polygon& rightContainer, std::vector<Iso_rectangle>& bBoxes, Iso_rectangle& placedBBox) {
     //evaluate quality of placing given piece at this position
-    switch (placementPolicy)
-    {
-    case WASTE:
-    {
-        //use difference in size of new and old bounding boxes of placed pieces
-        return 1;
-    }
-    case OVERLAP:
-    {
-        //use overlap between bounding boxes of next piece and the ones already placed
-        return 1;
-    }
-    case DISTANCE:
-    {
-        //use (squared) distance between center of bounding boxes of placed pieces and next
+    
+    NT eval = 0;
+    const Iso_rectangle newBBox = Iso_rectangle(Point(next.bottom_vertex()->x() + position.x(), next.bottom_vertex()->y() + position.y()),
+        Point(next.top_vertex()->x() + position.x(), next.top_vertex()->y() + position.y()));
 
-        return 1;
+    if (bBoxes.size() > 0) {
+        //calculate WASTE - difference in size of new and old bounding boxes of placed pieces
+        Iso_rectangle newPlaced = Iso_rectangle(Point(std::min(newBBox.xmin(), placedBBox.xmin()), std::min(newBBox.ymin(), placedBBox.ymin())),
+            Point(std::max(newBBox.xmax(), placedBBox.xmax()), std::max(newBBox.ymax(), placedBBox.ymax())));
+        eval += newPlaced.area() - placedBBox.area();
+
+
+        //calculate DISTANCE - (squared) distance between center of bounding boxes of placed pieces and next
+        const Point placedCenter(0.5 * (placedBBox.xmin() + placedBBox.xmax()), 0.5 * (placedBBox.ymin() + placedBBox.ymax()));
+        const Point newCenter(0.5 * (newBBox.xmin() + newBBox.xmax()), 0.5 * (newBBox.ymin() + newBBox.ymax()));
+        eval += CGAL::squared_distance(placedCenter, newCenter);
     }
-    default:
-        throw std::invalid_argument("No valid placement policy chosen");
+    
+    //calculate OVERLAP - overlap between bounding boxes of next piece and the ones already placed
+    for (auto bbox : bBoxes) {
+        const auto result = CGAL::intersection(bbox, newBBox);
+        if (result) {
+            if (const Iso_rectangle* r = boost::get<Iso_rectangle>(&*result)) {
+                eval -= r->area();
+            }
+        }
+    }
+    
+    return eval;
+}
+
+void Toposv2::addNewPieceExact(Candidate& cand, Polygon& leftContainer, Polygon& rightContainer) {
+    Polygon_with_holes res;
+    CGAL::join(leftContainer, cand.poly, res);
+    leftContainer = res.outer_boundary();
+    return;
+
+    //add the newly placed polygon to container
+    auto bottomUp = CGAL::Circulator_from_iterator(leftContainer.begin(), leftContainer.end(), leftContainer.bottom_vertex());
+    ++bottomUp;
+    //update container with new piece
+    NT xmin = cand.poly.left_vertex()->x();
+    NT xmax = cand.poly.right_vertex()->x();
+    NT ymin = cand.poly.bottom_vertex()->y();
+    NT ymax = cand.poly.top_vertex()->y();
+
+    Point previous = *bottomUp;
+    //find start vertex to insert new polygon
+
+    //insert into leftContainer
+    if (true || CGAL::do_intersect(leftContainer, cand.poly)) {
+        auto polyStart = cand.poly.begin();
+        auto polyEnd = cand.poly.end();
+        --polyEnd;
+
+        //find first intersection point bottom-up
+        bool intersectFound = false;
+        while (!intersectFound) {
+            if (true){//(xmin <= bottomUp->x() && bottomUp->x() <= xmax && ymin <= bottomUp->y() && bottomUp->y() <= ymax) {
+                Point prevCand = *polyEnd;
+                bool edgeContact = false;
+                for (auto v = cand.poly.begin(); v != cand.poly.end(); ++v) {
+                    if (!intersectFound) {
+                        if (*v == *bottomUp) {
+                            //point of container touches point of polygon
+                            intersectFound = true;
+                            polyStart = v;
+                            ++polyStart;
+                        }
+                        else if (CGAL::collinear(prevCand, *v, *bottomUp) && (prevCand < *bottomUp && *bottomUp < *v || prevCand > *bottomUp && *bottomUp > *v)) {
+                            //point of container touches edge of polygon
+                            intersectFound = true;
+                            polyStart = v;
+                        }
+                    }
+                    if (CGAL::collinear(previous, *bottomUp, *v) && (previous < *v && *v < *bottomUp || previous > *v && *v > *bottomUp)) {
+                        //point(s) of polygon touch edge of container
+                        if (!edgeContact || CGAL::squared_distance(*v, *bottomUp) > CGAL::squared_distance(*polyStart, *bottomUp)) {
+                            polyStart = v;
+                            edgeContact = true;
+                            intersectFound = true;
+                        }
+                    }
+                    prevCand = *v;
+                }
+                if (edgeContact)
+                    --bottomUp;
+                if (intersectFound)
+                    break;
+            }
+            previous = *bottomUp;
+            ++bottomUp;
+        }
+
+
+        auto topDown = CGAL::Circulator_from_iterator(leftContainer.begin(), leftContainer.end(), leftContainer.top_vertex());
+        --topDown;
+        //find first intersection point top-down
+        intersectFound = false;
+        while (!intersectFound) {
+            if (true){//(xmin <= topDown->x() && topDown->x() <= xmax && ymin <= topDown->y() && topDown->y() <= ymax) {
+                Point prevCand = *cand.poly.begin();
+                bool edgeContact = false;
+                for (auto v = polyEnd; v != cand.poly.begin(); --v) {
+                    if (!intersectFound) {
+                        if (*v == *topDown) {
+                            //point of container touches point of polygon
+                            intersectFound = true;
+                            polyEnd = v;
+                            --polyEnd;
+                        }
+                        else if (CGAL::collinear(prevCand, *v, *topDown) && (prevCand < *topDown && *topDown < *v || prevCand > *topDown && *topDown > *v)) {
+                            //point of container touches edge of polygon
+                            intersectFound = true;
+                            polyEnd = v;
+                        }
+                    }
+                    if (CGAL::collinear(previous, *topDown, *v) && (previous < *v && *v < *topDown || previous > *v && *v > *topDown)) {
+                        //point(s) of polygon touch edge of container
+                        if (!edgeContact || CGAL::squared_distance(*v, *topDown) > CGAL::squared_distance(*polyEnd, *topDown)) {
+                            polyEnd = v;
+                            edgeContact = true;
+                            intersectFound = true;
+                        }
+                    }
+                    prevCand = *v;
+                }
+                if (edgeContact)
+                    ++topDown;
+                if (intersectFound)
+                    break;
+            }
+            previous = *topDown;
+            --topDown;
+        }
+
+        //erase part of old container that will be replaced
+        if(topDown != bottomUp)
+            --topDown;
+        while (topDown != bottomUp) {
+            topDown = CGAL::Circulator_from_iterator(leftContainer.begin(), leftContainer.end(), leftContainer.erase(topDown.current_iterator()));
+            --topDown;
+        }
+        ++topDown;
+
+        //insert part of polygon between first and last intersection
+        auto polyIter = CGAL::Circulator_from_iterator(cand.poly.begin(), cand.poly.end(), polyStart);
+        while (polyIter.current_iterator() != polyEnd) {
+            std::cout << *polyIter << std::endl;
+            topDown = CGAL::Circulator_from_iterator(leftContainer.begin(), leftContainer.end(), leftContainer.insert(topDown.current_iterator(), *polyIter));
+            ++topDown;
+            ++polyIter;
+        }
+        leftContainer.insert(topDown.current_iterator(), *polyEnd);
+    }
+
+    //insert into right container
+    else {
+        std::cout << "should insert in right container" << std::endl;
+    }
+}
+
+void Toposv2::addNewPieceRightBounds(Candidate& cand, Polygon& leftContainer, Polygon& rightContainer) {
+    //add the newly placed piece to container by extending its lowest and highest point to -inf
+
+    auto it = CGAL::Circulator_from_iterator(leftContainer.begin(), leftContainer.end(), leftContainer.bottom_vertex());
+    ++it;
+    bool leftInsert = false;
+    //update container with new piece
+
+    Point previous = *it;
+    //find start vertex to insert right boundary into left container
+    if (true || CGAL::do_intersect(leftContainer, cand.poly)) {
+        leftInsert = true;
+        while (it->x() > leftContainer.left_vertex()->x() || it->y() > leftContainer.bottom_vertex()->y())
+        {
+            //move up boundary until height of new piece is reached
+            if (it->y() < cand.poly.bottom_vertex()->y())
+            {
+                previous = *it;
+                ++it;
+            }
+            else {
+                //add piece's right boundary to container
+                auto placedIt = CGAL::Circulator_from_iterator(cand.poly.begin(), cand.poly.end(), cand.poly.bottom_vertex());
+                auto endIter = cand.poly.top_vertex();
+
+                if (placedIt->y() < it->y()) {
+                    //create new vertex to the left of lowest vertex of new piece
+                    NT xIntersect = previous.x() + (it->x() - previous.x()) * (placedIt->y() - previous.y()) / (it->y() - previous.y());
+                    //only if new piece is not already on boundary
+                    if (xIntersect != placedIt->x())
+                    {
+                        it = CGAL::Circulator_from_iterator(leftContainer.begin(), leftContainer.end(), leftContainer.insert(it.current_iterator(), Point(xIntersect, placedIt->y())));
+                        ++it;
+                    }
+                }
+                else
+                {
+                    if (placedIt->x() == it->x())
+                        ++placedIt;
+                    else
+                        ++it;
+                }
+                previous = *placedIt;
+                do {
+                    if (previous.y() > placedIt->y()) {
+                        --placedIt;
+                        --placedIt;
+                        Point& before = *placedIt;
+                        ++placedIt;
+                        ++placedIt;
+
+                        //remove non-y-monotone parts
+                        if ((previous.x() - before.x()) * (placedIt->y() - before.y()) - (previous.y() - before.y()) * (placedIt->x() - before.x()) < 0) {
+                            --it;
+                            while (it->y() > placedIt->y()) {
+                                it = CGAL::Circulator_from_iterator(leftContainer.begin(), leftContainer.end(), leftContainer.erase(it.current_iterator()));
+                                --it;
+                            }
+                            ++it;
+                            it = CGAL::Circulator_from_iterator(leftContainer.begin(), leftContainer.end(), leftContainer.insert(it.current_iterator(), Point(placedIt->x(), placedIt->y())));
+                            ++it;
+                        }
+                    }
+                    else {
+                        it = CGAL::Circulator_from_iterator(leftContainer.begin(), leftContainer.end(), leftContainer.insert(it.current_iterator(), Point(placedIt->x(), placedIt->y())));
+                        ++it;
+                    }
+                    previous = *placedIt;
+                    ++placedIt;
+                } while (previous.y() < endIter->y());
+
+                while (it->y() < endIter->y()) {
+                    previous = *it;
+                    it = CGAL::Circulator_from_iterator(leftContainer.begin(), leftContainer.end(), leftContainer.erase(it.current_iterator()));
+                }
+                if (it->y() == endIter->y()) {
+                    if (it->x() == endIter->x()) {
+                        leftContainer.erase(it.current_iterator());
+                    }
+                    else {
+                        ++it;
+                        if (it->y() == endIter->y()) {
+                            --it;
+                            while (it->y() == endIter->y()) {
+                                it = CGAL::Circulator_from_iterator(leftContainer.begin(), leftContainer.end(), leftContainer.erase(it.current_iterator()));
+                                --it;
+                            }
+                        }
+                    }
+                }
+                else {
+                    NT xIntersect = previous.x() + (it->x() - previous.x()) * (endIter->y() - previous.y()) / (it->y() - previous.y());
+                    if (xIntersect > endIter->x())
+                        leftContainer.insert(it.current_iterator(), Point(xIntersect, endIter->y()));
+                }
+                //toIPE2("test.ipe", leftContainer, { cand.poly });
+                break;
+            }
+        }
     }
 }
 
@@ -261,28 +502,35 @@ SolveStatus Toposv2::solve(Problem* prob)
     std::vector<Item*> copyItems = prob->getItems();
     std::list<Item*> itemList(copyItems.begin(), copyItems.end());
 
+    std::vector<Iso_rectangle> bBoxes;
+    Iso_rectangle placedBBox;
+
     int counter = 0;
     while (itemList.size() > 0) {
 
         //iterate all pieces and find best candidate for next placement
-        NT max = -1;
-        Item* bestPiece;
+        NT min = 10e40;
+        Item* bestPiece = nullptr;
         Point bestPiecePlacement;
-        for (auto item : itemList)
+        std::list<Item*>::iterator item = itemList.begin();
+        while (item != itemList.end())
         {
             //find best placement for current piece
             Point placement;
-            if (!bestPlacement(item->poly, leftContainer, rightContainer, placement))
+            NT eval;
+            if (!bestPlacement((*item)->poly, leftContainer, rightContainer, bBoxes, placedBBox, placement, eval)) {
+                item = itemList.erase(item);
                 continue;
+            }
 
             //check if tested piece has better evaluation than previous best
-            NT eval = evalPlacement(item->poly, placement, leftContainer, rightContainer);
-            if (eval > max) {
-                max = eval;
-                bestPiece = item;
+            if (eval < min) {
+                min = eval;
+                bestPiece = *item;
                 bestPiecePlacement = placement;
             }
 
+            ++item;
             //for now use first possible piece
             break;
         }
@@ -300,6 +548,32 @@ SolveStatus Toposv2::solve(Problem* prob)
             cand.poly.push_back(p);
         }
 
+        //toIPE2("test.ipe", leftContainer, { cand.poly });
+
+        switch (joinMode)
+        {
+        case EXACT:
+            addNewPieceExact(cand, leftContainer, rightContainer);
+            break;
+        case LEFT_EXTEND:
+            addNewPieceRightBounds(cand, leftContainer, rightContainer);
+            break;
+        default:
+            throw std::invalid_argument("No valid join operation");
+        }
+
+        Iso_rectangle newBBox = Iso_rectangle(Point(cand.poly.bottom_vertex()->x(), cand.poly.bottom_vertex()->y()), Point(cand.poly.top_vertex()->x(), cand.poly.top_vertex()->y()));
+        //add polygon's BBox to existing ones
+        if (bBoxes.size() == 0)
+            placedBBox = newBBox;
+        else
+        {
+            placedBBox = Iso_rectangle(Point(std::min(newBBox.xmin(), placedBBox.xmin()), std::min(newBBox.ymin(), placedBBox.ymin())),
+                Point(std::max(newBBox.xmax(), placedBBox.xmax()), std::max(newBBox.ymax(), placedBBox.ymax())));
+        }
+        bBoxes.push_back(newBBox);
+
+
         cand.index = bestPiece->index;
         cand.x_translation = bestPiecePlacement.x();
         cand.y_translation = bestPiecePlacement.y();
@@ -310,107 +584,14 @@ SolveStatus Toposv2::solve(Problem* prob)
         if (bestPiece->quantity <= 0)
             itemList.remove(bestPiece);
 
-        auto it = CGAL::Circulator_from_iterator(leftContainer.begin(), leftContainer.end(), leftContainer.bottom_vertex());
-        ++it;
-        bool leftInsert = false;
-        //update container with new piece
         
-        Point previous = *it;
-        //find start vertex to insert right boundary into left container
-        if (true || CGAL::do_intersect(leftContainer, cand.poly)) {
-            leftInsert = true;
-            while (it->x() > leftContainer.left_vertex()->x() || it->y() > leftContainer.bottom_vertex()->y())
-            {
-                //move up boundary until height of new piece is reached
-                if (it->y() < cand.poly.bottom_vertex()->y())
-                {
-                    previous = *it;
-                    ++it;
-                }
-                else{
-                    //add piece's right boundary to container
-                    auto placedIt = CGAL::Circulator_from_iterator(cand.poly.begin(), cand.poly.end(), cand.poly.bottom_vertex());
-                    auto endIter = cand.poly.top_vertex();
-
-                    if (placedIt->y() < it->y()) {
-                        //create new vertex to the left of lowest vertex of new piece
-                        NT xIntersect = previous.x() + (it->x() - previous.x()) * (placedIt->y() - previous.y()) / (it->y() - previous.y());
-                        //only if new piece is not already on boundary
-                        if (xIntersect != placedIt->x())
-                        {
-                            it = CGAL::Circulator_from_iterator(leftContainer.begin(), leftContainer.end(), leftContainer.insert(it.current_iterator(), Point(xIntersect, placedIt->y())));
-                            ++it;
-                        }
-                    }
-                    else
-                    {
-                        if (placedIt->x() == it->x())
-                            ++placedIt;
-                        else
-                            ++it;
-                    }
-                    previous = *placedIt;
-                    do {
-                        if (previous.y() > placedIt->y()) {
-                            --placedIt;
-                            --placedIt;
-                            Point& before = *placedIt;
-                            ++placedIt;
-                            ++placedIt;
-                            
-                            //remove non-y-monotone parts
-                            if ((previous.x() - before.x()) * (placedIt->y() - before.y()) - (previous.y() - before.y()) * (placedIt->x() - before.x()) < 0) {
-                                --it;
-                                while (it->y() > placedIt->y()) {
-                                    it = CGAL::Circulator_from_iterator(leftContainer.begin(), leftContainer.end(), leftContainer.erase(it.current_iterator()));
-                                    --it;
-                                }
-                                ++it;
-                                it = CGAL::Circulator_from_iterator(leftContainer.begin(), leftContainer.end(), leftContainer.insert(it.current_iterator(), Point(placedIt->x(), placedIt->y())));
-                                ++it;
-                            }
-                        }
-                        else {
-                            it = CGAL::Circulator_from_iterator(leftContainer.begin(), leftContainer.end(), leftContainer.insert(it.current_iterator(), Point(placedIt->x(), placedIt->y())));
-                            ++it;
-                        }
-                        previous = *placedIt;
-                        ++placedIt;
-                    } while (previous.y() < endIter->y());
-
-                    while (it->y() < endIter->y()) {
-                        previous = *it;
-                        it = CGAL::Circulator_from_iterator(leftContainer.begin(), leftContainer.end(), leftContainer.erase(it.current_iterator()));
-                    }
-                    if (it->y() == endIter->y()) {
-                        if (it->x() == endIter->x()) {
-                            leftContainer.erase(it.current_iterator());
-                        }
-                        else {
-                            ++it;
-                            if (it->y() == endIter->y()) {
-                                --it;
-                                leftContainer.erase(it.current_iterator());
-                            }
-                        }
-                    }
-                    else {
-                        NT xIntersect = previous.x() + (it->x() - previous.x()) * (endIter->y() - previous.y()) / (it->y() - previous.y());
-                        if (xIntersect > endIter->x())
-                            leftContainer.insert(it.current_iterator(), Point(xIntersect, endIter->y()));
-                    }
-                    //toIPE2("test.ipe", leftContainer, { cand.poly });
-                    break;
-                }
-            }
-        }
 
         //toIPE2("test.ipe", leftContainer, { cand.poly });
 
         counter++;
         std::cout << counter << " pieces placed" << std::endl;
         
-        if (counter >= 100)
+        if (counter >= 1365)
             break;
     }
 

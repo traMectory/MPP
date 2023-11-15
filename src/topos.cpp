@@ -420,7 +420,8 @@ SolveStatus Topos::solve(Problem* prob)
         }
 
         counter++;
-        if (counter >= 3)
+        std::cout << counter << " pieces placed" << std::endl;
+        if (counter >= 3000)
             break;
     }
 

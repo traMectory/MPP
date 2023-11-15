@@ -16,9 +16,11 @@
 
 using json = nlohmann::json;
 
-typedef CGAL::Lazy_exact_nt<CGAL::Quotient<CGAL::MP_Float>> NT;
-// typedef CGAL::Exact_predicates_exact_constructions_kernel K;
-typedef CGAL::Cartesian<NT> K;
+//typedef CGAL::Lazy_exact_nt<CGAL::Quotient<CGAL::MP_Float>> NT;
+//typedef double NT;
+typedef CGAL::Exact_predicates_exact_constructions_kernel K;
+//typedef CGAL::Cartesian<NT> K;
+typedef K::RT NT;
 typedef CGAL::Polygon_with_holes_2<K> Polygon_with_holes;
 typedef CGAL::Polygon_2<K> Polygon;
 typedef Polygon::Vertex_iterator VertexIterator;
