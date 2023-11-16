@@ -1,6 +1,6 @@
 # MPP
 
-## Buildling
+## Building
 
 ### Linux
 ```
