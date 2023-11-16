@@ -1,6 +1,6 @@
 # MPP
 
-To build:
+To build (linux):
 ```
 <mkdir build>
 cd build
