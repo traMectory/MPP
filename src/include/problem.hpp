@@ -40,7 +40,6 @@ struct Item
 {
     int index;
     Polygon poly;
-    std::vector<Polygon> inners;
     int quantity;
     int value;
 
@@ -69,17 +68,13 @@ private:
 
     int num_items;
 
-    long long score;
+    long long score = 0;
 
     long time;
 
 public:
-    // Problem(Polygon poly)
-    // {
-    //     name = "temp";
-    //     type = "temp";
-    //     boundary_polgyon = poly;
-    // };
+
+    Problem();
 
     Problem(char *file_name);
 
@@ -97,8 +92,15 @@ public:
             num_items++;
         }
     };
+    Problem(Polygon cont, std::vector<Item*> cands, int nnum_items)
+    {
+        container = cont;
+        num_items = nnum_items;
+        items = cands;
+    };
 
     long long getScore() { return score; };
+    void setScore(long long nscore) { score = nscore; };
 
     void setTime(long t) { time = t; };
     void addComment(std::string c) { comments.push_back(c); };
@@ -118,6 +120,7 @@ public:
     bool test() { return true; };
 
     void addCandidate(Candidate cand, int value) { candidates.push_back(cand); score += value; };
+    void clearCandidates() { candidates.clear(); };
 
     Polygon getContainer() { return container; };
     std::vector<Item*> getItems() { return items; };

@@ -5,8 +5,7 @@
 #include "msum.h"
 #include "leftlayerone.h"
 #include "miscellaneous.h"
-
-#include <catch2/catch_session.hpp>
+#include "metaheuristic1.h"
 
 bool visualize = false;
 int algorithm = 0;

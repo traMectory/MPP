@@ -1,10 +1,5 @@
 #include "leftlayerone.h"
 
-bool compareItemsArea(Item *i1, Item *i2)
-{
-    return i1->poly.area() < i2->poly.area();
-};
-
 SolveStatus LeftLayerOne::solve(Problem *prob)
 {
     prob->addComment("Algorithm: leftlayer");
@@ -18,8 +13,6 @@ SolveStatus LeftLayerOne::solve(Problem *prob)
 
     std::vector<Item *> copyItems = prob->getItems();
 
-    std::sort(copyItems.begin(), copyItems.end(), compareItemsArea);
-
     // std::cout << "2\n";
     int count = 0;
     int num_items = 0;
@@ -29,7 +22,7 @@ SolveStatus LeftLayerOne::solve(Problem *prob)
     }
     // std::cout << "2\n";
 
-    std::cout << "total number of items: " << num_items << std::endl;
+    // std::cout << "total number of items: " << num_items << std::endl;
 
     bool added = true;
 

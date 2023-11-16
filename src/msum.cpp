@@ -133,18 +133,6 @@ SolveStatus Msum::solve(Problem *prob)
 
             prob->addCandidate(cand, item->value);
 
-            for (Polygon inner : item->inners)
-            {
-                Polygon innerCand;
-                for (Point v : inner)
-                {
-                    innerCand.push_back(v + trans);
-                }
-                Candidate innerC;
-                innerC.poly = innerCand;
-                prob->addCandidate(innerC, 0);
-            }
-
             item->quantity--;
 
             if (item->quantity > 0)

@@ -26,6 +26,11 @@ int main(int argc, char **argv)
         LeftLayerOne solver = LeftLayerOne();
         solver.solve(&problem);
     }
+    else if (algorithm == 2)
+    {
+        Metaheuristic solver = Metaheuristic();
+        solver.solve(&problem);
+    }
     
     auto time = dif(tms, start);
     problem.addComment("Time: " + std::to_string(time.count()) + "ms");
