@@ -1,6 +1,6 @@
 #include "toposv2.h"
 
-void toIPE2(std::string path, Polygon boundary, std::vector<Polygon> polygons)
+void toIPE2(std::string path, Polygon boundary, std::vector<Polygon> polygons, std::vector<Point> points)
 {
     std::ofstream o(path);
 
@@ -77,7 +77,8 @@ void toIPE2(std::string path, Polygon boundary, std::vector<Polygon> polygons)
     o << "<page>\n";
     o << "<layer name=\"boundary\"/>\n";
     o << "<layer name=\"candidates\"/>\n";
-    o << "<view layers=\"boundary candidates\" active=\"candidates\"/>\n";
+    o << "<layer name=\"points\"/>\n";
+    o << "<view layers=\"boundary candidates points\" active=\"candidates\"/>\n";
 
     o << "<path layer=\"boundary\" stroke=\"black\">";
 
@@ -102,6 +103,13 @@ void toIPE2(std::string path, Polygon boundary, std::vector<Polygon> polygons)
             first = false;
         }
         o << "h\n</path>\n";
+    }
+
+    for (auto p : points)
+    {
+        o << "<path layer=\"points\" fill=\"blue\" opacity=\"75%\" stroke-opacity=\"opaque\">\n";
+        o << "0.5 0 0 0.5 " << ((p.x() - xmin) * 560 / scale + 16) << " " << (p.y() * 560 / scale + 272) << " e\n";
+        o << "\n</path>\n";
     }
 
     o << "</page>\n";
@@ -207,7 +215,7 @@ NT Toposv2::evalPlacement(Polygon& next, Point& position, Polygon& leftContainer
         //calculate DISTANCE - (squared) distance between center of bounding boxes of placed pieces and next
         const Point placedCenter(0.5 * (placedBBox.xmin() + placedBBox.xmax()), 0.5 * (placedBBox.ymin() + placedBBox.ymax()));
         const Point newCenter(0.5 * (newBBox.xmin() + newBBox.xmax()), 0.5 * (newBBox.ymin() + newBBox.ymax()));
-        eval += CGAL::squared_distance(placedCenter, newCenter);
+        //eval += CGAL::approximate_sqrt(CGAL::squared_distance(placedCenter, newCenter));
     }
     
     //calculate OVERLAP - overlap between bounding boxes of next piece and the ones already placed
@@ -225,9 +233,9 @@ NT Toposv2::evalPlacement(Polygon& next, Point& position, Polygon& leftContainer
 
 void Toposv2::addNewPieceExact(Candidate& cand, Polygon& leftContainer, Polygon& rightContainer) {
     Polygon_with_holes res;
-    CGAL::join(leftContainer, cand.poly, res);
-    leftContainer = res.outer_boundary();
-    return;
+    //CGAL::join(leftContainer, cand.poly, res);
+    //leftContainer = res.outer_boundary();
+    //return;
 
     //add the newly placed polygon to container
     auto bottomUp = CGAL::Circulator_from_iterator(leftContainer.begin(), leftContainer.end(), leftContainer.bottom_vertex());
@@ -237,6 +245,9 @@ void Toposv2::addNewPieceExact(Candidate& cand, Polygon& leftContainer, Polygon&
     NT xmax = cand.poly.right_vertex()->x();
     NT ymin = cand.poly.bottom_vertex()->y();
     NT ymax = cand.poly.top_vertex()->y();
+    //construct bounding sphere around polygon
+    //Point polyCenter((xmin + xmax) / 2, (ymin + ymax) / 2);
+    //NT rSq = CGAL::sqrt(CGAL::squared_distance(polyCenter, Point(xmin, ymin)));
 
     Point previous = *bottomUp;
     //find start vertex to insert new polygon
@@ -247,10 +258,13 @@ void Toposv2::addNewPieceExact(Candidate& cand, Polygon& leftContainer, Polygon&
         auto polyEnd = cand.poly.end();
         --polyEnd;
 
+        if (DEBUG)
+            toIPE2("test.ipe", leftContainer, { cand.poly }, {});
+
         //find first intersection point bottom-up
         bool intersectFound = false;
         while (!intersectFound) {
-            if (true){//(xmin <= bottomUp->x() && bottomUp->x() <= xmax && ymin <= bottomUp->y() && bottomUp->y() <= ymax) {
+            if (true){
                 Point prevCand = *polyEnd;
                 bool edgeContact = false;
                 for (auto v = cand.poly.begin(); v != cand.poly.end(); ++v) {
@@ -259,6 +273,8 @@ void Toposv2::addNewPieceExact(Candidate& cand, Polygon& leftContainer, Polygon&
                             //point of container touches point of polygon
                             intersectFound = true;
                             polyStart = v;
+                            if (polyStart == polyEnd)
+                                polyStart = cand.poly.begin();
                             ++polyStart;
                         }
                         else if (CGAL::collinear(prevCand, *v, *bottomUp) && (prevCand < *bottomUp && *bottomUp < *v || prevCand > *bottomUp && *bottomUp > *v)) {
@@ -286,21 +302,22 @@ void Toposv2::addNewPieceExact(Candidate& cand, Polygon& leftContainer, Polygon&
             ++bottomUp;
         }
 
-
         auto topDown = CGAL::Circulator_from_iterator(leftContainer.begin(), leftContainer.end(), leftContainer.top_vertex());
         --topDown;
         //find first intersection point top-down
         intersectFound = false;
         while (!intersectFound) {
-            if (true){//(xmin <= topDown->x() && topDown->x() <= xmax && ymin <= topDown->y() && topDown->y() <= ymax) {
+            if (true){
                 Point prevCand = *cand.poly.begin();
                 bool edgeContact = false;
-                for (auto v = polyEnd; v != cand.poly.begin(); --v) {
+                for (auto v = polyEnd;;--v) {
                     if (!intersectFound) {
                         if (*v == *topDown) {
                             //point of container touches point of polygon
                             intersectFound = true;
                             polyEnd = v;
+                            if (polyEnd == cand.poly.begin())
+                                polyEnd = cand.poly.end();
                             --polyEnd;
                         }
                         else if (CGAL::collinear(prevCand, *v, *topDown) && (prevCand < *topDown && *topDown < *v || prevCand > *topDown && *topDown > *v)) {
@@ -318,6 +335,8 @@ void Toposv2::addNewPieceExact(Candidate& cand, Polygon& leftContainer, Polygon&
                         }
                     }
                     prevCand = *v;
+                    if (v == cand.poly.begin())
+                        break;
                 }
                 if (edgeContact)
                     ++topDown;
@@ -331,23 +350,25 @@ void Toposv2::addNewPieceExact(Candidate& cand, Polygon& leftContainer, Polygon&
         //erase part of old container that will be replaced
         if(topDown != bottomUp)
             --topDown;
+
         while (topDown != bottomUp) {
             topDown = CGAL::Circulator_from_iterator(leftContainer.begin(), leftContainer.end(), leftContainer.erase(topDown.current_iterator()));
             --topDown;
+
         }
         ++topDown;
 
         //insert part of polygon between first and last intersection
         auto polyIter = CGAL::Circulator_from_iterator(cand.poly.begin(), cand.poly.end(), polyStart);
         while (polyIter.current_iterator() != polyEnd) {
-            std::cout << *polyIter << std::endl;
             topDown = CGAL::Circulator_from_iterator(leftContainer.begin(), leftContainer.end(), leftContainer.insert(topDown.current_iterator(), *polyIter));
+            //toIPE2("test.ipe", leftContainer, { cand.poly });
             ++topDown;
             ++polyIter;
         }
         leftContainer.insert(topDown.current_iterator(), *polyEnd);
+        //toIPE2("test.ipe", leftContainer, { cand.poly });
     }
-
     //insert into right container
     else {
         std::cout << "should insert in right container" << std::endl;
@@ -520,6 +541,7 @@ SolveStatus Toposv2::solve(Problem* prob)
             NT eval;
             if (!bestPlacement((*item)->poly, leftContainer, rightContainer, bBoxes, placedBBox, placement, eval)) {
                 item = itemList.erase(item);
+                std::cout << "Could not find placement!\n";
                 continue;
             }
 
@@ -547,8 +569,6 @@ SolveStatus Toposv2::solve(Problem* prob)
             Point p(v.x() + bestPiecePlacement.x(), v.y() + bestPiecePlacement.y());
             cand.poly.push_back(p);
         }
-
-        //toIPE2("test.ipe", leftContainer, { cand.poly });
 
         switch (joinMode)
         {
@@ -590,9 +610,13 @@ SolveStatus Toposv2::solve(Problem* prob)
 
         counter++;
         std::cout << counter << " pieces placed" << std::endl;
-        
-        if (counter >= 1365)
+
+        if (counter ==342)
+            toIPE2("test.ipe", leftContainer, {  }, { });
+
+        if (counter == 342)
             break;
+
     }
 
     return SolveStatus::Feasible;

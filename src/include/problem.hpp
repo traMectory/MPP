@@ -6,7 +6,6 @@
 #include <json.hpp>
 #include <iostream>
 #include "graphIPE.hpp"
-#include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
 #include <CGAL/Polygon_with_holes_2.h>
 #include <CGAL/Boolean_set_operations_2.h>
 #include <CGAL/Bbox_2.h>

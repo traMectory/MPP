@@ -20,6 +20,7 @@ public:
 
     SolveStatus solve(Problem* prob);
 
-    joinMode joinMode = LEFT_EXTEND;
+    joinMode joinMode = EXACT;
+    bool DEBUG = false;
 };
 
