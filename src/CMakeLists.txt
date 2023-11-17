@@ -4,9 +4,7 @@ project(MPP)
 file (GLOB_RECURSE sources *.h *.cpp *.hpp *.tpp)
 
 find_package(CGAL REQUIRED)
-find_package(CGAL COMPONENTS Qt5)
-add_definitions(-DCGAL_USE_BASIC_VIEWER)
 include_directories(include tools)
 
 add_executable(mpp ${sources})
-target_link_libraries(mpp CGAL::CGAL_Qt5)
+target_link_libraries(mpp CGAL::CGAL)
