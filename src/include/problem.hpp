@@ -72,7 +72,7 @@ private:
 
     int num_items;
 
-    long long score;
+    long long score = 0;
 
     long time;
 
