@@ -9,4 +9,4 @@
 #include "geneticalgorithm.h"
 
 bool visualize = false;
-int algorithm = 0;
+int algorithm = 3;

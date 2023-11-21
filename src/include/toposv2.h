@@ -22,5 +22,6 @@ public:
 
     joinMode joinMode = EXACT;
     bool DEBUG = false;
+    bool VERBOSE = false;
 };
 

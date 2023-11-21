@@ -112,8 +112,8 @@ void Problem::storeSolution(std::string loc)
     for (Candidate item : candidates)
     {
         output["item_indices"].push_back(item.index);
-        output["x_translations"].push_back((int)item.x_translation);
-        output["y_translations"].push_back((int)item.y_translation);
+        output["x_translations"].push_back((int)CGAL::to_double(item.x_translation));
+        output["y_translations"].push_back((int)CGAL::to_double(item.y_translation));
         // output["x_translations"].push_back(item.x_translation.exact().numerator().doubleValue()/item.x_translation.exact().denominator().doubleValue());
         // output["y_translations"].push_back(item.y_translation.exact().numerator().doubleValue()/item.y_translation.exact().denominator().doubleValue());
     }
@@ -128,7 +128,7 @@ void toIPE(std::string path, Polygon boundary, std::vector<Candidate> polygons)
 
     // Find extreme coords of the graph (if you use CGAL you can use inbuild functions instead)
 
-    NT xmin, xmax, ymin, ymax;
+    double xmin, xmax, ymin, ymax;
     for (Point p : boundary.vertices())
     {
 
@@ -137,7 +137,7 @@ void toIPE(std::string path, Polygon boundary, std::vector<Candidate> polygons)
         ymin = std::min(ymin, p.y().interval().pair().first);
         ymax = std::max(ymax, p.y().interval().pair().first);
     }
-    NT scale = std::max(xmax - xmin, ymax - ymin);
+    double scale = std::max(xmax - xmin, ymax - ymin);
 
     // Header of the IPE File
     o << "<?xml version=\"1.0\"?>\n";

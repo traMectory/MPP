@@ -528,7 +528,8 @@ SolveStatus Toposv2::solve(Problem* prob)
             NT eval;
             if (!bestPlacement((*item)->poly, container, bBoxes, placedBBox, placement, eval)) {
                 item = itemList.erase(item);
-                std::cout << "Could not find placement!\n";
+                if(VERBOSE)
+                    std::cout << "Could not find placement!\n";
                 continue;
             }
 
@@ -593,7 +594,8 @@ SolveStatus Toposv2::solve(Problem* prob)
         //toIPE2("test.ipe", leftContainer, { cand.poly });
 
         counter++;
-        //std::cout << counter << " pieces placed" << std::endl;
+        if(VERBOSE)
+            std::cout << counter << " pieces placed" << std::endl;
 
         if (DEBUG)
             toIPE2("test.ipe", container, { cand.poly }, {});

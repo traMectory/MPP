@@ -108,6 +108,6 @@ void GeneticAlgorithm::run(size_t generations) {
 			}
 		}
 		eval();
-		std::cout << "Generation " << i << " done, best score: " << best->getScore() << "std::endl";
+		std::cout << "Generation " << i << " done, best score: " << best->getScore() << std::endl;
 	}
 }
