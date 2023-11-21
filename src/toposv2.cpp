@@ -193,6 +193,7 @@ bool Toposv2::bestPlacement(Polygon& next, Polygon& container,std::vector<Iso_re
 
 NT Toposv2::evalPlacement(Polygon& next, Point& position, Polygon& container, std::vector<Iso_rectangle>& bBoxes, Iso_rectangle& placedBBox) {
     //evaluate quality of placing given piece at this position
+    //return position.y() + position.x() * 0.000001;
     
     NT eval = 0;
     const Iso_rectangle newBBox = Iso_rectangle(Point(next.bottom_vertex()->x() + position.x(), next.bottom_vertex()->y() + position.y()),
@@ -601,6 +602,5 @@ SolveStatus Toposv2::solve(Problem* prob)
             toIPE2("test.ipe", container, { cand.poly }, {});
 
     }
-
     return SolveStatus::Feasible;
 }

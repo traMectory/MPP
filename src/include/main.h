@@ -8,5 +8,5 @@
 #include "toposv2.h"
 #include "geneticalgorithm.h"
 
-bool visualize = false;
-int algorithm = 3;
+bool visualize = true;
+int algorithm = 0;
