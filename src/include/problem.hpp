@@ -109,13 +109,15 @@ public:
     std::string getString() { return name; };
     int getNumItems() { return num_items; };
 
-    void setItems(std::vector<Item*> itemsN) { items = itemsN; };
+    void setItems(std::vector<Item*> itemsN) { items = itemsN; num_items = items.size(); };
 
     bool isValidPacking();
 
     bool test() { return true; };
 
     void addCandidate(Candidate cand, int value) { candidates.push_back(cand); score += value; };
+
+    long long getScore() { return score; };
 
     Polygon getContainer() { return container; };
     std::vector<Item*> getItems() { return items; };

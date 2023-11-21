@@ -10,11 +10,11 @@ class Toposv2 : public Solver
 public:
     Toposv2() {};
 
-    bool bestPlacement(Polygon& next, Polygon& leftContainer, Polygon& rightContainer, std::vector<Iso_rectangle>& bBoxes, Iso_rectangle& placedBBox, Point& translation, NT& bestEval);
+    bool bestPlacement(Polygon& next, Polygon& container, std::vector<Iso_rectangle>& bBoxes, Iso_rectangle& placedBBox, Point& translation, NT& bestEval);
 
-    NT evalPlacement(Polygon& next, Point& position, Polygon& leftContainer, Polygon& rightContainer, std::vector<Iso_rectangle>& bBoxes, Iso_rectangle& placedBBox);
+    NT evalPlacement(Polygon& next, Point& position, Polygon& container, std::vector<Iso_rectangle>& bBoxes, Iso_rectangle& placedBBox);
 
-    void addNewPieceExact(Candidate& next, Polygon& leftContainer, Polygon& rightContainer);
+    void addNewPieceExact(Candidate& next, Polygon& container);
 
     void addNewPieceRightBounds(Candidate& next, Polygon& leftContainer, Polygon& rightContainer);
 

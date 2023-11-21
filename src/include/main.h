@@ -8,6 +8,7 @@
 #include "combine.h"
 #include "miscellaneous.h"
 #include "toposv2.h"
+#include "geneticalgorithm.h"
 
 #include <catch2/catch_session.hpp>
 

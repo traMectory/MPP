@@ -27,7 +27,8 @@ int main(int argc, char **argv)
     else if (algorithm == 3)
     {
         Toposv2 solver = Toposv2();
-        solver.solve(&problem);
+        GeneticAlgorithm ga = GeneticAlgorithm(&solver);
+        ga.solve(&problem);
     }
 
     problem.prettyPrint();

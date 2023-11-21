@@ -127,7 +127,7 @@ void toIPE2(std::string path, Polygon boundary, std::vector<Polygon> polygons, s
     }
 }
 
-bool Toposv2::bestPlacement(Polygon& next, Polygon& leftContainer, Polygon& rightContainer,std::vector<Iso_rectangle>& bBoxes, Iso_rectangle& placedBBox , Point& translation, NT& bestEval) {
+bool Toposv2::bestPlacement(Polygon& next, Polygon& container,std::vector<Iso_rectangle>& bBoxes, Iso_rectangle& placedBBox , Point& translation, NT& bestEval) {
     /// <summary>
     /// finds the best placement for next piece, given current configuration
     /// </summary>
@@ -137,8 +137,7 @@ bool Toposv2::bestPlacement(Polygon& next, Polygon& leftContainer, Polygon& righ
     /// <param name="rightContainer">right portion</param>
     /// <param name="translation">resulting position of best placement</param>
     /// <returns>wheter or not a valid placement was found</returns>
-    Polygon_with_holes noFitLeft;
-    Polygon_with_holes noFitRight;
+    Polygon_with_holes noFit;
     
     //toIPE("test.ipe", next, { leftContainer, rightContainer });
     
@@ -151,20 +150,14 @@ bool Toposv2::bestPlacement(Polygon& next, Polygon& leftContainer, Polygon& righ
     }
     //toIPE2("test.ipe", leftContainer, { next });
     //Calculate polygon in which the new piece can be placed
-    noFitLeft = CGAL::minkowski_sum_2(leftContainer, inverseNext);
+    noFit = CGAL::minkowski_sum_2(container, inverseNext);
     //toIPE("test.ipe", noFitLeft.outer_boundary(), { leftContainer, next });
-    noFitRight = CGAL::minkowski_sum_2(rightContainer, inverseNext);
-    //toIPE("test.ipe", noFitRight.outer_boundary(), { rightContainer, next });
 
-    Polygon_with_holes noFitContainer;
-    CGAL::join(noFitLeft, noFitRight, noFitContainer);
-
-
-    if (noFitContainer.number_of_holes() == 0)
+    if (noFit.number_of_holes() == 0)
         //no space for polygon inside container
         return false;
 
-    Polygon outerBounds = noFitContainer.holes().at(0);
+    Polygon outerBounds = noFit.holes().at(0);
     outerBounds.reverse_orientation();
 
     //toIPE("test.ipe", noFitLeft.outer_boundary(), { outerBounds, next });
@@ -187,7 +180,7 @@ bool Toposv2::bestPlacement(Polygon& next, Polygon& leftContainer, Polygon& righ
     Point bestPos;
     for (auto pos : possiblePositions)
     {
-        NT eval = evalPlacement(next, pos, leftContainer, rightContainer, bBoxes, placedBBox);
+        NT eval = evalPlacement(next, pos, container, bBoxes, placedBBox);
         if (eval < bestEval) {
             bestEval = eval;
             bestPos = pos;
@@ -198,7 +191,7 @@ bool Toposv2::bestPlacement(Polygon& next, Polygon& leftContainer, Polygon& righ
     return true;
 }
 
-NT Toposv2::evalPlacement(Polygon& next, Point& position, Polygon& leftContainer, Polygon& rightContainer, std::vector<Iso_rectangle>& bBoxes, Iso_rectangle& placedBBox) {
+NT Toposv2::evalPlacement(Polygon& next, Point& position, Polygon& container, std::vector<Iso_rectangle>& bBoxes, Iso_rectangle& placedBBox) {
     //evaluate quality of placing given piece at this position
     
     NT eval = 0;
@@ -227,19 +220,24 @@ NT Toposv2::evalPlacement(Polygon& next, Point& position, Polygon& leftContainer
             }
         }
     }
+
+    //encourage bottom-left placement
+    eval += position.y() + position.x();
     
     return eval;
 }
 
-void Toposv2::addNewPieceExact(Candidate& cand, Polygon& leftContainer, Polygon& rightContainer) {
-    Polygon_with_holes res;
-    //CGAL::join(leftContainer, cand.poly, res);
-    //leftContainer = res.outer_boundary();
+void Toposv2::addNewPieceExact(Candidate& cand, Polygon& container) {
+    //Polygon_with_holes res;
+    //CGAL::join(container, cand.poly, res);
+    //container = res.outer_boundary();
     //return;
 
     //add the newly placed polygon to container
-    auto bottomUp = CGAL::Circulator_from_iterator(leftContainer.begin(), leftContainer.end(), leftContainer.bottom_vertex());
-    ++bottomUp;
+    auto forward = CGAL::Circulator_from_iterator(container.begin(), container.end(), container.right_vertex());
+    forward += 2;
+    if (forward->y() == container.top_vertex()->y())
+        ++forward;
     //update container with new piece
     NT xmin = cand.poly.left_vertex()->x();
     NT xmax = cand.poly.right_vertex()->x();
@@ -249,130 +247,129 @@ void Toposv2::addNewPieceExact(Candidate& cand, Polygon& leftContainer, Polygon&
     //Point polyCenter((xmin + xmax) / 2, (ymin + ymax) / 2);
     //NT rSq = CGAL::sqrt(CGAL::squared_distance(polyCenter, Point(xmin, ymin)));
 
-    Point previous = *bottomUp;
+    Point previous = *forward;
     //find start vertex to insert new polygon
 
     //insert into leftContainer
-    if (true || CGAL::do_intersect(leftContainer, cand.poly)) {
-        auto polyStart = cand.poly.begin();
-        auto polyEnd = cand.poly.end();
-        --polyEnd;
+    auto polyStart = cand.poly.begin();
+    auto polyEnd = cand.poly.end();
+    --polyEnd;
 
-        if (DEBUG)
-            toIPE2("test.ipe", leftContainer, { cand.poly }, {});
+    if (DEBUG)
+        toIPE2("test.ipe", container, { cand.poly }, {*container.begin()});
 
-        //find first intersection point bottom-up
-        bool intersectFound = false;
-        while (!intersectFound) {
-            if (true){
-                Point prevCand = *polyEnd;
-                bool edgeContact = false;
-                for (auto v = cand.poly.begin(); v != cand.poly.end(); ++v) {
-                    if (!intersectFound) {
-                        if (*v == *bottomUp) {
-                            //point of container touches point of polygon
-                            intersectFound = true;
-                            polyStart = v;
-                            if (polyStart == polyEnd)
-                                polyStart = cand.poly.begin();
-                            ++polyStart;
-                        }
-                        else if (CGAL::collinear(prevCand, *v, *bottomUp) && (prevCand < *bottomUp && *bottomUp < *v || prevCand > *bottomUp && *bottomUp > *v)) {
-                            //point of container touches edge of polygon
-                            intersectFound = true;
-                            polyStart = v;
-                        }
+    //find first intersection point bottom-up
+    bool intersectFound = false;
+    while (!intersectFound) {
+        if (true){
+            Point prevCand = *polyEnd;
+            bool edgeContact = false;
+            for (auto v = cand.poly.begin(); v != cand.poly.end(); ++v) {
+                if (!intersectFound) {
+                    if (*v == *forward) {
+                        //point of container touches point of polygon
+                        intersectFound = true;
+                        polyStart = v;
+                        if (polyStart == polyEnd)
+                            polyStart = cand.poly.begin();
+                        ++polyStart;
                     }
-                    if (CGAL::collinear(previous, *bottomUp, *v) && (previous < *v && *v < *bottomUp || previous > *v && *v > *bottomUp)) {
-                        //point(s) of polygon touch edge of container
-                        if (!edgeContact || CGAL::squared_distance(*v, *bottomUp) > CGAL::squared_distance(*polyStart, *bottomUp)) {
-                            polyStart = v;
-                            edgeContact = true;
-                            intersectFound = true;
-                        }
+                    else if (CGAL::collinear(prevCand, *v, *forward) && (prevCand < *forward && *forward < *v || prevCand > *forward && *forward > *v)) {
+                        //point of container touches edge of polygon
+                        intersectFound = true;
+                        polyStart = v;
                     }
-                    prevCand = *v;
                 }
-                if (edgeContact)
-                    --bottomUp;
-                if (intersectFound)
+                if (CGAL::collinear(previous, *forward, *v) && (previous < *v && *v < *forward || previous > *v && *v > *forward)) {
+                    //point(s) of polygon touch edge of container
+                    if (!edgeContact || CGAL::squared_distance(*v, *forward) > CGAL::squared_distance(*polyStart, *forward)) {
+                        polyStart = v;
+                        edgeContact = true;
+                        intersectFound = true;
+                    }
+                }
+                prevCand = *v;
+            }
+            if (edgeContact)
+                --forward;
+            if (intersectFound)
+                break;
+        }
+        previous = *forward;
+        ++forward;
+    }
+
+    auto backward = CGAL::Circulator_from_iterator(container.begin(), container.end(), container.left_vertex());
+    backward -= 2;
+    if (backward->y() == container.top_vertex()->y())
+        --backward;
+    //find first intersection point top-down
+    intersectFound = false;
+    while (!intersectFound) {
+        if (true){
+            Point prevCand = *cand.poly.begin();
+            bool edgeContact = false;
+            for (auto v = polyEnd;;--v) {
+                if (!intersectFound) {
+                    if (*v == *backward) {
+                        //point of container touches point of polygon
+                        intersectFound = true;
+                        polyEnd = v;
+                        if (polyEnd == cand.poly.begin())
+                            polyEnd = cand.poly.end();
+                        --polyEnd;
+                    }
+                    else if (CGAL::collinear(prevCand, *v, *backward) && (prevCand < *backward && *backward < *v || prevCand > *backward && *backward > *v)) {
+                        //point of container touches edge of polygon
+                        intersectFound = true;
+                        polyEnd = v;
+                    }
+                }
+                if (CGAL::collinear(previous, *backward, *v) && (previous < *v && *v < *backward || previous > *v && *v > *backward)) {
+                    //point(s) of polygon touch edge of container
+                    if (!edgeContact || CGAL::squared_distance(*v, *backward) > CGAL::squared_distance(*polyEnd, *backward)) {
+                        polyEnd = v;
+                        edgeContact = true;
+                        intersectFound = true;
+                    }
+                }
+                prevCand = *v;
+                if (v == cand.poly.begin())
                     break;
             }
-            previous = *bottomUp;
-            ++bottomUp;
+            if (edgeContact)
+                ++backward;
+            if (intersectFound)
+                break;
         }
+        previous = *backward;
+        --backward;
+    }
 
-        auto topDown = CGAL::Circulator_from_iterator(leftContainer.begin(), leftContainer.end(), leftContainer.top_vertex());
-        --topDown;
-        //find first intersection point top-down
-        intersectFound = false;
-        while (!intersectFound) {
-            if (true){
-                Point prevCand = *cand.poly.begin();
-                bool edgeContact = false;
-                for (auto v = polyEnd;;--v) {
-                    if (!intersectFound) {
-                        if (*v == *topDown) {
-                            //point of container touches point of polygon
-                            intersectFound = true;
-                            polyEnd = v;
-                            if (polyEnd == cand.poly.begin())
-                                polyEnd = cand.poly.end();
-                            --polyEnd;
-                        }
-                        else if (CGAL::collinear(prevCand, *v, *topDown) && (prevCand < *topDown && *topDown < *v || prevCand > *topDown && *topDown > *v)) {
-                            //point of container touches edge of polygon
-                            intersectFound = true;
-                            polyEnd = v;
-                        }
-                    }
-                    if (CGAL::collinear(previous, *topDown, *v) && (previous < *v && *v < *topDown || previous > *v && *v > *topDown)) {
-                        //point(s) of polygon touch edge of container
-                        if (!edgeContact || CGAL::squared_distance(*v, *topDown) > CGAL::squared_distance(*polyEnd, *topDown)) {
-                            polyEnd = v;
-                            edgeContact = true;
-                            intersectFound = true;
-                        }
-                    }
-                    prevCand = *v;
-                    if (v == cand.poly.begin())
-                        break;
-                }
-                if (edgeContact)
-                    ++topDown;
-                if (intersectFound)
-                    break;
-            }
-            previous = *topDown;
-            --topDown;
-        }
+    //erase part of old container that will be replaced
+    if(backward != forward)
+        --backward;
 
-        //erase part of old container that will be replaced
-        if(topDown != bottomUp)
-            --topDown;
+    while (backward != forward) {
+        auto fwd = forward.current_iterator() - container.begin();
+        if (backward.current_iterator() < forward.current_iterator())
+            fwd -= 1;
+        backward = CGAL::Circulator_from_iterator(container.begin(), container.end(), container.erase(backward.current_iterator()));
+        forward = CGAL::Circulator_from_iterator(container.begin(), container.end(), container.begin()) + fwd;
+        --backward;
+    }
+    ++backward;
 
-        while (topDown != bottomUp) {
-            topDown = CGAL::Circulator_from_iterator(leftContainer.begin(), leftContainer.end(), leftContainer.erase(topDown.current_iterator()));
-            --topDown;
-
-        }
-        ++topDown;
-
-        //insert part of polygon between first and last intersection
-        auto polyIter = CGAL::Circulator_from_iterator(cand.poly.begin(), cand.poly.end(), polyStart);
-        while (polyIter.current_iterator() != polyEnd) {
-            topDown = CGAL::Circulator_from_iterator(leftContainer.begin(), leftContainer.end(), leftContainer.insert(topDown.current_iterator(), *polyIter));
-            //toIPE2("test.ipe", leftContainer, { cand.poly });
-            ++topDown;
-            ++polyIter;
-        }
-        leftContainer.insert(topDown.current_iterator(), *polyEnd);
+    //insert part of polygon between first and last intersection
+    auto polyIter = CGAL::Circulator_from_iterator(cand.poly.begin(), cand.poly.end(), polyStart);
+    while (polyIter.current_iterator() != polyEnd) {
+        backward = CGAL::Circulator_from_iterator(container.begin(), container.end(), container.insert(backward.current_iterator(), *polyIter));
         //toIPE2("test.ipe", leftContainer, { cand.poly });
+        ++backward;
+        ++polyIter;
     }
-    //insert into right container
-    else {
-        std::cout << "should insert in right container" << std::endl;
-    }
+    container.insert(backward.current_iterator(), *polyEnd);
+    //toIPE2("test.ipe", leftContainer, { cand.poly });
 }
 
 void Toposv2::addNewPieceRightBounds(Candidate& cand, Polygon& leftContainer, Polygon& rightContainer) {
@@ -479,7 +476,6 @@ void Toposv2::addNewPieceRightBounds(Candidate& cand, Polygon& leftContainer, Po
 
 SolveStatus Toposv2::solve(Problem* prob)
 {
-
     //outer boundaries of previously placed pieces, each element is one connected part to keep polygons simple
     std::vector<Polygon> placedPieces;
 
@@ -487,38 +483,29 @@ SolveStatus Toposv2::solve(Problem* prob)
     int wall = 10e6;
 
 
-    //split container into left and right portion
+    //build new polygon as outside of container
 
     auto bottom = container.bottom_vertex();
     auto top = container.top_vertex();
 
-    Polygon leftContainer;
-    Polygon rightContainer;
+    container.reverse_orientation();
+    auto containerStart = CGAL::Circulator_from_iterator(container.begin(), container.end(), container.top_vertex());
+    auto containerEnd = containerStart - 1;
 
-    //build left container
+    NT dist = CGAL::squared_distance(*containerStart, *containerEnd);
+    containerEnd = CGAL::Circulator_from_iterator(container.begin(), container.end(), container.insert(containerStart.current_iterator(),
+        Point(containerStart->x() + (containerEnd->x() - containerStart->x()) / dist, containerStart->y() + (containerEnd->y() - containerStart->y()) / dist)));
+    containerStart = containerEnd + 1;
 
-    leftContainer.push_back(Point(bottom->x(), bottom->y() - wall));
+    auto it = container.insert(containerStart.current_iterator(), Point(containerStart->x(), containerStart->y() + wall));
+    it = container.insert(it, Point(container.right_vertex()->x() + wall, it->y()));
+    it = container.insert(it, Point(it->x(), container.bottom_vertex()->y() - wall));
+    it = container.insert(it, Point(container.left_vertex()->x() - wall, it->y()));
+    it = container.insert(it, Point(it->x(), container.top_vertex()->y()));
 
-    for (auto v = bottom; v != top; v = v == container.begin() ? container.end() - 1 : v - 1) {
-        leftContainer.push_back(Point(v->x(), v->y()));
-    }
-    leftContainer.push_back(Point(top->x(), top->y()));
-    leftContainer.push_back(Point(top->x(), top->y() + wall));
-    leftContainer.push_back(Point(container.bbox().xmin() - wall, container.bbox().ymax() + wall));
-    leftContainer.push_back(Point(container.bbox().xmin() - wall, container.bbox().ymin() - wall));
-
-    //build right container
-
-    rightContainer.push_back(Point(top->x(), top->y() + wall));
-
-    for (auto v = top; v != bottom; v = v == container.begin() ? container.end() - 1 : v - 1) {
-        rightContainer.push_back(Point(v->x(), v->y()));
-    }
-    rightContainer.push_back(Point(bottom->x(), bottom->y()));
-    rightContainer.push_back(Point(bottom->x(), bottom->y() - wall));
-    rightContainer.push_back(Point(container.bbox().xmax() + wall, container.bbox().ymin() - wall));
-    rightContainer.push_back(Point(container.bbox().xmax() + wall, container.bbox().ymax() + wall));
-
+    containerEnd = CGAL::Circulator_from_iterator(container.begin(), container.end(), it) - 1;
+    containerEnd = CGAL::Circulator_from_iterator(container.begin(), container.end(), container.insert(it, Point(containerEnd->x(), it->y()))) -1;
+    containerStart = containerEnd + 7;
 
     std::vector<Item*> copyItems = prob->getItems();
     std::list<Item*> itemList(copyItems.begin(), copyItems.end());
@@ -539,7 +526,7 @@ SolveStatus Toposv2::solve(Problem* prob)
             //find best placement for current piece
             Point placement;
             NT eval;
-            if (!bestPlacement((*item)->poly, leftContainer, rightContainer, bBoxes, placedBBox, placement, eval)) {
+            if (!bestPlacement((*item)->poly, container, bBoxes, placedBBox, placement, eval)) {
                 item = itemList.erase(item);
                 std::cout << "Could not find placement!\n";
                 continue;
@@ -573,10 +560,7 @@ SolveStatus Toposv2::solve(Problem* prob)
         switch (joinMode)
         {
         case EXACT:
-            addNewPieceExact(cand, leftContainer, rightContainer);
-            break;
-        case LEFT_EXTEND:
-            addNewPieceRightBounds(cand, leftContainer, rightContainer);
+            addNewPieceExact(cand, container);
             break;
         default:
             throw std::invalid_argument("No valid join operation");
@@ -609,13 +593,10 @@ SolveStatus Toposv2::solve(Problem* prob)
         //toIPE2("test.ipe", leftContainer, { cand.poly });
 
         counter++;
-        std::cout << counter << " pieces placed" << std::endl;
+        //std::cout << counter << " pieces placed" << std::endl;
 
-        if (counter ==342)
-            toIPE2("test.ipe", leftContainer, {  }, { });
-
-        if (counter == 342)
-            break;
+        if (DEBUG)
+            toIPE2("test.ipe", container, { cand.poly }, {});
 
     }
 
