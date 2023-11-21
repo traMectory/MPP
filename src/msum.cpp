@@ -1,6 +1,5 @@
 #include "msum.h"
 
-
 // Sort function based on area
 bool compareItemsC(Item *i1, Item *i2)
 {
@@ -12,6 +11,8 @@ bool compareItemsC(Item *i1, Item *i2)
  */
 SolveStatus Msum::solve(Problem *prob)
 {
+    prob->addComment("Algorithm: msum");
+    prob->addComment("Sorting: area dec");
 
     // Create the container which we use as obstacle to calculate the freespace around. The container has the shape of a C
 
@@ -24,12 +25,11 @@ SolveStatus Msum::solve(Problem *prob)
     target.push_back(Point(container.bbox().xmin() - wall, container.bbox().ymin() - wall));
     target.push_back(Point(container.bbox().xmax() + wall, container.bbox().ymin() - wall));
 
-
     auto v = container.right_vertex()[0];
     int n = 0;
     int i = container.size() - 1;
     bool adding = false;
-    
+
     while (i > n)
     {
         if (!adding && container[i] == v)
@@ -45,10 +45,9 @@ SolveStatus Msum::solve(Problem *prob)
 
         i--;
     }
-    
-    target.push_back(Point(container[i < 0 ? i + container.size() : i].x(), container[i < 0 ? i + container.size() : i].y()));
-    target.push_back(Point(container.bbox().xmax() + wall, container.bbox().ymin() - wall + 1));
 
+    target.push_back(Point(container[i < 0 ? i + container.size() : i].x(), container[i < 0 ? i + container.size() : i].y() + 1));
+    target.push_back(Point(container.bbox().xmax() + wall, container.bbox().ymin() - wall + 1));
 
     // Get items and sort on size
 
@@ -87,11 +86,15 @@ SolveStatus Msum::solve(Problem *prob)
 
         Pwh_list freeSpace;
         for (Polygon hole : sum.holes())
-        {
+        {   
+            if (hole.is_clockwise_oriented()) {
+                hole.reverse_orientation();
+            }
+            // std::cout << hole.is_counterclockwise_oriented() << std::endl;
             freeSpace.push_back(Polygon_with_holes(hole));
         }
 
-        // This the expensive part, as for every item we have already added we need to calculate 
+        // This the expensive part, as for every item we have already added we need to calculate
         //     the freespace and intersect it with the freespace calculated so far
         for (Candidate candidate : prob->getCandidates())
         {
@@ -125,8 +128,8 @@ SolveStatus Msum::solve(Problem *prob)
             }
 
             cand.index = item->index;
-            cand.x_translation = trans.x();
-            cand.y_translation = trans.y();
+            cand.x_translation = (int) (trans.x().interval().pair().first + trans.x().interval().pair().second) / 2;
+            cand.y_translation = (int) (trans.y().interval().pair().first + trans.y().interval().pair().second) / 2;
 
             prob->addCandidate(cand, item->value);
 

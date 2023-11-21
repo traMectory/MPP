@@ -43,6 +43,13 @@
 Problem::Problem(char *file_name)
 {
     std::ifstream f(file_name);
+
+    if (f.fail())
+    {
+        std::cerr << "Fail not found!\n";
+        return;
+    }
+
     json data = json::parse(f);
 
     type = data["type"];
@@ -82,23 +89,33 @@ Problem::Problem(char *file_name)
     }
 }
 
-void Problem::storeSolution() {
-    std::string vis_name = "../Solutions/" + name + ".json";
+void Problem::storeSolution(std::string loc)
+{
+    std::string vis_name = loc + "/" + name + ".json";
     std::ofstream o(vis_name);
 
     json output;
 
     output["type"] = "cgshop2024_solution";
-    
+
     output["instance_name"] = name;
     output["item_indices"] = {};
     output["x_translations"] = {};
     output["y_translations"] = {};
+    output["comments"] = {};
 
-    for (Candidate item : candidates) {
+    for (std::string comment : comments)
+    {
+        output["comments"].push_back(comment);
+    }
+
+    for (Candidate item : candidates)
+    {
         output["item_indices"].push_back(item.index);
-        //output["x_translations"].push_back(item.x_translation.exact());
-        //output["y_translations"].push_back(item.y_translation.exact());
+        output["x_translations"].push_back((int)item.x_translation);
+        output["y_translations"].push_back((int)item.y_translation);
+        // output["x_translations"].push_back(item.x_translation.exact().numerator().doubleValue()/item.x_translation.exact().denominator().doubleValue());
+        // output["y_translations"].push_back(item.y_translation.exact().numerator().doubleValue()/item.y_translation.exact().denominator().doubleValue());
     }
 
     o << std::setw(4) << output << std::endl;
@@ -115,10 +132,10 @@ void toIPE(std::string path, Polygon boundary, std::vector<Candidate> polygons)
     for (Point p : boundary.vertices())
     {
 
-        xmin = std::min(xmin, p.x());
-        xmax = std::max(xmax, p.x());
-        ymin = std::min(ymin, p.y());
-        ymax = std::max(ymax, p.y());
+        xmin = std::min(xmin, p.x().interval().pair().first);
+        xmax = std::max(xmax, p.x().interval().pair().first);
+        ymin = std::min(ymin, p.y().interval().pair().first);
+        ymax = std::max(ymax, p.y().interval().pair().first);
     }
     NT scale = std::max(xmax - xmin, ymax - ymin);
 
@@ -179,7 +196,7 @@ void toIPE(std::string path, Polygon boundary, std::vector<Candidate> polygons)
 
     for (Point v : boundary.vertices())
     {
-        o << ((v.x() - xmin) * 560 / scale + 16) << " " << (v.y() * 560 / scale + 272) << " " << (first ? "m" : "l") << "\n";
+        o << ((v.x().interval().pair().first - xmin) * 560 / scale + 16) << " " << (v.y().interval().pair().first * 560 / scale + 272) << " " << (first ? "m" : "l") << "\n";
         first = false;
     }
     o << "h\n</path>\n";
@@ -192,47 +209,11 @@ void toIPE(std::string path, Polygon boundary, std::vector<Candidate> polygons)
 
         for (Point v : poly.poly.vertices())
         {
-            o << ((v.x() - xmin) * 560 / scale + 16) << " " << (v.y() * 560 / scale + 272) << " " << (first ? "m" : "l") << "\n";
+            o << ((v.x().interval().pair().first - xmin) * 560 / scale + 16) << " " << (v.y().interval().pair().first * 560 / scale + 272) << " " << (first ? "m" : "l") << "\n";
             first = false;
         }
         o << "h\n</path>\n";
     }
-
-    // for (Point p : points)
-    // {
-    //     o << "<use layer=\"points\" name=\"mark/disk(sx)\" pos=\"" << ((p.x - xmin) * 560 / scale + 16) << " " << ((p.y - ymin) * 560 / scale + 272) << "\" size=\"normal\" stroke=\"black\"/>";
-    //     // o << "<path layer=\"polygon\" stroke=\"black\">\n";
-    //     // o << ((e.s.x - xmin) * 560 / scale + 16) << " " << ((e.s.y - ymin) * 560 / scale + 272) << " m\n";
-    //     // o << ((e.t.x - xmin) * 560 / scale + 16) << " " << ((e.t.y - ymin) * 560 / scale + 272) << " l\n";
-    //     // o << "h\n</path>\n";
-    // }
-
-    // for (int i = 1; i < boundary.size(); i++vis_name)
-    // {
-    //     o << ((boundary[i].x- xmin) * 560 / scale + 16) << " " << ((boundary[i].y - ymin) * 560 / scale + 272) << " l\n";
-    // }
-
-    // for (auto hole : holes)
-    // {
-    //     o << "<path layer=\"polygon\" stroke=\"black\" fill=\"gray\">\n";
-    //     o << ((hole[0].x - xmin) * 560 / scale + 16) << " " << ((hole[0].y - ymin) * 560 / scale + 272) << " m\n";
-    //     for (int i = 1; i < hole.size(); i++)
-    //     {
-    //         o << ((hole[i].x - xmin) * 560 / scale + 16) << " " << ((hole[i].y - ymin) * 560 / scale + 272) << " l\n";
-    //     }
-    //     o << "h\n</path>\n";
-    // }
-
-    // for (auto convex : cover)
-    // {
-    //     o << "<path layer=\"cover\" stroke=\"black\" fill=\"red\" opacity=\"25%\">\n";
-    //     o << ((convex[0].x - xmin) * 560 / scale + 16) << " " << ((convex[0].y - ymin) * 560 / scale + 272) << " m\n";
-    //     for (int i = 1; i < convex.size(); i++)
-    //     {
-    //         o << ((convex[i].x - xmin) * 560 / scale + 16) << " " << ((convex[i].y - ymin) * 560 / scale + 272) << " l\n";
-    //     }
-    //     o << "h\n</path>\n";
-    // }
 
     o << "</page>\n";
     o << "</ipe>\n";
@@ -259,10 +240,10 @@ void Problem::visualizeSolution()
         Point s = edge.start();
         Point t = edge.target();
 
-            NT sx = s.x();
-            NT sy = s.y();
-            NT tx = t.x();
-            NT ty = t.y();
+        NT sx = s.x().interval().pair().first;
+        NT sy = s.y().interval().pair().first;
+        NT tx = t.x().interval().pair().first;
+        NT ty = t.y().interval().pair().first;
 
         edges.push_back(Edge(Point(sx, sy), Point(tx, ty)));
         points.push_back(Point(sx, sy));
@@ -276,10 +257,10 @@ void Problem::visualizeSolution()
             Point s = edge.start();
             Point t = edge.target();
 
-            NT sx = s.x();
-            NT sy = s.y();
-            NT tx = t.x();
-            NT ty = t.y();
+            NT sx = s.x().interval().pair().first;
+            NT sy = s.y().interval().pair().first;
+            NT tx = t.x().interval().pair().first;
+            NT ty = t.y().interval().pair().first;
 
             edges.push_back(Edge(Point(sx, sy), Point(tx, ty)));
             points.push_back(Point(sx, sy));
@@ -290,4 +271,26 @@ void Problem::visualizeSolution()
     std::string path = name + ".ipe";
 
     toIPE(path, container, candidates);
+}
+
+void Problem::roundItems()
+{
+    for (Item *item : items)
+    {
+        Polygon it = item->poly;
+
+        Polygon ext;
+        ext.push_back(Point(-1, -1));
+        ext.push_back(Point(1, -1));
+        ext.push_back(Point(1, 1));
+        ext.push_back(Point(-1, 1));
+
+        Polygon sum = CGAL::minkowski_sum_2(it, ext).outer_boundary();
+
+        // if (sum.is_clockwise_oriented()) {
+        //     sum.reverse_orientation();
+        // }
+
+        item->poly = sum;
+    }
 }

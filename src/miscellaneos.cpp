@@ -6,7 +6,7 @@ void parseOptions(int argc, char* argv[]) {
     options.add_options()
         ("h, help", "show this help message")
         ("v, visualize", "automatically open ipe at the end of the calculation")
-        ("a, algorithm", "chooses the algorithm to use (0: msum, 1: leftlayer, 2: leftlayerone)", cxxopts::value<int>());
+        ("a, algorithm", "chooses the algorithm to use (0: msum, 1: leftlayerone)", cxxopts::value<int>());
 
     auto result = options.parse(argc, argv);
 

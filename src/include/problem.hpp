@@ -6,12 +6,15 @@
 #include <json.hpp>
 #include <iostream>
 #include "graphIPE.hpp"
+#include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
+#include <CGAL/Exact_predicates_exact_constructions_kernel.h>
 #include <CGAL/Polygon_with_holes_2.h>
 #include <CGAL/Boolean_set_operations_2.h>
 #include <CGAL/Bbox_2.h>
 #include <CGAL/Cartesian.h>
 #include <CGAL/Quotient.h>
 #include <CGAL/CORE_BigRat.h>
+#include <CGAL/minkowski_sum_2.h>
 
 using json = nlohmann::json;
 
@@ -59,7 +62,7 @@ class Problem
 private:
     std::string name;
     std::string type;
-    std::string comment;
+    std::vector<std::string> comments;
 
     Polygon container;
 
@@ -98,8 +101,10 @@ public:
         }
     };
 
+    long long getScore() { return score; };
+
     void setTime(long t) { time = t; };
-    void setComment(std::string c) { comment = c; };
+    void addComment(std::string c) { comments.push_back(c); };
 
     // void addToPacking(Polygon c) { packing_polygons.push_back(c); };
 
@@ -117,8 +122,6 @@ public:
 
     void addCandidate(Candidate cand, int value) { candidates.push_back(cand); score += value; };
 
-    long long getScore() { return score; };
-
     Polygon getContainer() { return container; };
     std::vector<Item*> getItems() { return items; };
     std::vector<Candidate> getCandidates() { return candidates; };
@@ -130,7 +133,9 @@ public:
     void visualize();
     void visualizeSolution();
 
-    void storeSolution();
+    void roundItems();
+
+    void storeSolution(std::string loc);
 
     void output();
 };

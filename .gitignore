@@ -5,3 +5,6 @@ instance
 instance_images
 debugprint
 Solutions
+debug
+*.sh
+python_tools/*.zip
