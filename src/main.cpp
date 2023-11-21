@@ -40,7 +40,7 @@ int main(int argc, char **argv)
 
     problem.prettyPrint();
 
-    //problem.storeSolution(argv[2]);
+    problem.storeSolution(argv[2]);
 
     if (visualize)
         problem.visualizeSolution();
