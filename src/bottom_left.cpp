@@ -3,18 +3,24 @@
 #include "bottom_left.h"
 
 SolveStatus BottomLeft::solve(Problem *prob) {
-    return BottomLeft::bl(prob);
+    std::vector<Candidate> candidates;
+    int score = 0;
+    SolveStatus status = bl(prob->getContainer(), prob->getItems(), &candidates, &score);
+    for (int i = 0; i < candidates.size(); i++) {
+        prob->addCandidate(candidates[i], 1);
+    }
+    prob->setScore(score);
+    return status;
 }
 
-SolveStatus BottomLeft::bl(Problem *prob) {
-    Polygon container = prob->getContainer();
+SolveStatus bl(Polygon container, std::vector<Item*> items, std::vector<Candidate>* candidates, int* score) {
     Polygon_with_holes complement;
     CGAL::complement(container, complement);
     Item *item;
-    for (int i = 0; i < prob->getNumItems(); i++) {
-        item = prob->getItems()[i];
+    for (int i = 0; i < items.size(); i++) {
+        item = items[i];
         while (item->quantity > 0) {
-            complement = pack_into(item, complement, prob, i);
+            complement = pack_into(item, complement, candidates, score, i);
             item->quantity--;
         }
     }
@@ -22,7 +28,7 @@ SolveStatus BottomLeft::bl(Problem *prob) {
     return SolveStatus::Feasible;
 }
 
-Polygon_with_holes BottomLeft::pack_into(Item *item, Polygon_with_holes c, Problem *prob, int i) {
+Polygon_with_holes pack_into(Item *item, Polygon_with_holes c, std::vector<Candidate>* candidates, int* score, int i) {
     Polygon inv = inverse(item->poly);
     Polygon_with_holes inner_fit_space = CGAL::minkowski_sum_2(inv, c);
     if (!inner_fit_space.has_holes()) {
@@ -43,12 +49,14 @@ Polygon_with_holes BottomLeft::pack_into(Item *item, Polygon_with_holes c, Probl
         .y_translation =
             (double) (bottom_left.y().interval().pair().first),
     };
-    prob->addCandidate(cand, item->value);
+
+    candidates->push_back(cand);
+    *score += item->value;
 
     return packed_inner_fit_space;
 }
 
-Polygon BottomLeft::translate_by(Polygon& p, Point& t) {
+Polygon translate_by(Polygon& p, Point& t) {
     Polygon translated;
     Point point;
     for (int i = 0; i < p.size(); i++) {
@@ -59,7 +67,7 @@ Polygon BottomLeft::translate_by(Polygon& p, Point& t) {
     return translated;
 }
 
-Polygon BottomLeft::inverse(Polygon& p) {
+Polygon inverse(Polygon& p) {
     Polygon inverse;
     for (int i = 0; i < p.size(); i++) { 
         Point point = Point(-p.vertices()[i].x(), -p.vertices()[i].y());
