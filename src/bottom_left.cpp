@@ -4,7 +4,7 @@
 
 SolveStatus BottomLeft::solve(Problem *prob) {
     std::vector<Candidate> candidates;
-    int score = 0;
+    long long score = 0;
     SolveStatus status = bl(prob->getContainer(), prob->getItems(), &candidates, &score);
     for (int i = 0; i < candidates.size(); i++) {
         prob->addCandidate(candidates[i], 1);
@@ -13,7 +13,7 @@ SolveStatus BottomLeft::solve(Problem *prob) {
     return status;
 }
 
-SolveStatus bl(Polygon container, std::vector<Item*> items, std::vector<Candidate>* candidates, int* score) {
+SolveStatus bl(Polygon container, std::vector<Item*> items, std::vector<Candidate>* candidates, long long* score) {
     Polygon_with_holes complement;
     CGAL::complement(container, complement);
     Item *item;
@@ -28,7 +28,7 @@ SolveStatus bl(Polygon container, std::vector<Item*> items, std::vector<Candidat
     return SolveStatus::Feasible;
 }
 
-Polygon_with_holes pack_into(Item *item, Polygon_with_holes c, std::vector<Candidate>* candidates, int* score, int i) {
+Polygon_with_holes pack_into(Item *item, Polygon_with_holes c, std::vector<Candidate>* candidates, long long* score, int i) {
     Polygon inv = inverse(item->poly);
     Polygon_with_holes inner_fit_space = CGAL::minkowski_sum_2(inv, c);
     if (!inner_fit_space.has_holes()) {
