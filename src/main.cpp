@@ -30,6 +30,10 @@ int main(int argc, char **argv)
     {
         Metaheuristic solver = Metaheuristic();
         solver.solve(&problem);
+    } else if (algorithm == 3)
+    {
+        BottomLeft solver = BottomLeft();
+        solver.solve(&problem);
     }
     
     auto time = dif(tms, start);
