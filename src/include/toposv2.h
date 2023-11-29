@@ -3,7 +3,7 @@
 #include "problem.hpp"
 #include <CGAL/minkowski_sum_2.h>
 
-enum joinMode { EXACT, LEFT_EXTEND };
+enum joinMode { EXACT, APPROXIMATE, LEFT_EXTEND };
 
 class Toposv2 : public Solver
 {
@@ -15,6 +15,8 @@ public:
     NT evalPlacement(Polygon& next, Point& position, Polygon& container, std::vector<Iso_rectangle>& bBoxes, Iso_rectangle& placedBBox);
 
     void addNewPieceExact(Candidate& next, Polygon& container);
+
+    void addNewPieceApprox(Candidate& next, Polygon& container);
 
     void addNewPieceRightBounds(Candidate& next, Polygon& leftContainer, Polygon& rightContainer);
 

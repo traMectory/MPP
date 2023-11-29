@@ -28,6 +28,7 @@ typedef CGAL::Polygon_2<K> Polygon;
 typedef Polygon::Vertex_iterator VertexIterator;
 typedef Polygon::Edge_const_iterator EdgeIterator;
 typedef K::Point_2 Point;
+typedef K::Line_2 Line;
 typedef K::Segment_2 Segment;
 typedef CGAL::Bbox_2 Bbox;
 typedef CGAL::Iso_rectangle_2<K> Iso_rectangle;
