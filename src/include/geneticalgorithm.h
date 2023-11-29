@@ -8,10 +8,10 @@ class GeneticAlgorithm : Solver
 public:
     GeneticAlgorithm(Solver* s) { solver = s; };
 
-    size_t populationSize = 50;
-    double mutationRate = 0.1;
-    double crossoverRate = 0.5;
-    size_t generations = 10;
+    size_t populationSize = 30;
+    double mutationRate = 0.5;
+    double crossoverRate = 0.6;
+    size_t generations = 20;
     size_t tournamentK = 3;
     double mutateSwapRate = 0.2;
 
