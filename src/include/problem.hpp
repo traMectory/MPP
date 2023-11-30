@@ -18,17 +18,21 @@
 
 using json = nlohmann::json;
 
-typedef double NT;
-// typedef long long NT;
+//typedef CGAL::Lazy_exact_nt<CGAL::Quotient<CGAL::MP_Float>> NT;
+//typedef double NT;
 typedef CGAL::Exact_predicates_exact_constructions_kernel K;
-// typedef CGAL::Cartesian<NT> K;
+//typedef CGAL::Cartesian<NT> K;
+typedef K::RT NT;
 typedef CGAL::Polygon_with_holes_2<K> Polygon_with_holes;
 typedef CGAL::Polygon_2<K> Polygon;
 typedef Polygon::Vertex_iterator VertexIterator;
 typedef Polygon::Edge_const_iterator EdgeIterator;
 typedef K::Point_2 Point;
+typedef K::Line_2 Line;
 typedef K::Segment_2 Segment;
 typedef CGAL::Bbox_2 Bbox;
+typedef CGAL::Iso_rectangle_2<K> Iso_rectangle;
+typedef Polygon::Vertex_circulator VertexCirculator;
 
 struct Edge
 {
@@ -69,7 +73,7 @@ private:
 
     int num_items;
 
-    long long score;
+    long long score = 0;
 
     long time;
 
@@ -111,7 +115,7 @@ public:
     std::string getString() { return name; };
     int getNumItems() { return num_items; };
 
-    void setItems(std::vector<Item*> itemsN) { items = itemsN; };
+    void setItems(std::vector<Item*> itemsN) { items = itemsN; num_items = items.size(); };
 
     bool isValidPacking();
 

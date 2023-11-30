@@ -26,6 +26,13 @@ int main(int argc, char **argv)
         LeftLayerOne solver = LeftLayerOne();
         solver.solve(&problem);
     }
+    else if (algorithm == 3)
+    {
+        Toposv2 solver = Toposv2();
+        GeneticAlgorithm ga = GeneticAlgorithm(&solver);
+        ga.solve(&problem);
+    }
+
     
     auto time = dif(tms, start);
     problem.addComment("Time: " + std::to_string(time.count()) + "ms");
