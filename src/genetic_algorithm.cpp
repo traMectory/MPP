@@ -143,7 +143,7 @@ SolveStatus GeneticAlgorithm::solve(Problem *prob) {
     for (int i = 0; i < this->n_threads + 1; i++) {
         this->threads[i].join();
     }
-    prob->setScore(this->population[this->population.size() - 1].get_fitness());
+
     for (int i = 0; i < this->population[this->population.size() - 1].get_candidates().size(); i++) {
         prob->addCandidate(this->population[this->population.size() - 1].get_candidates()[i], this->population[this->population.size() - 1].get_permutation()[i]->value);
     }
@@ -220,7 +220,9 @@ void GeneticAlgorithm::crossover(Individual *ind_i, Individual *ind_j, int index
         if (i >= p && i < p + q) {
             continue;
         }
-        perm_desc.push_back(ind_j->get_permutation()[i]);
+        if (!std::ranges::contains(perm_desc, ind_j->get_permutation()[i])) {
+            perm_desc.push_back(ind_j->get_permutation()[i]);
+        }
     }
 
     Individual individual = Individual(perm_desc);
