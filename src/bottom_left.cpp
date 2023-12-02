@@ -22,7 +22,7 @@ SolveStatus bl(Polygon container, std::vector<Item*> items, std::vector<Candidat
         items_copy.push_back(*items[i]);
         item = &items_copy[i];
         while (item->quantity > 0) {
-            complement = pack_into(item, complement, candidates, score, i);
+            complement = pack_into(item, complement, candidates, score, item->index);
             item->quantity--;
         }
     }
