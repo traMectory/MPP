@@ -11,6 +11,20 @@ int main(int argc, char **argv)
 
     problem.roundItems();
 
+    /*Polygon p = Polygon();
+    p.push_back(Point(0, 0));
+    p.push_back(Point(1, 0));
+    p.push_back(Point(1, 1));
+    p.push_back(Point(0, 1));
+
+    Polygon c = Polygon();
+    c.push_back(Point(0, 0));
+    c.push_back(Point(4, 0));
+    c.push_back(Point(4, 4));
+    c.push_back(Point(0, 4));
+
+    problem = Problem(c, {p, p});*/
+
 
     // Problem problem = Problem(argv[1]);
 
@@ -33,6 +47,10 @@ int main(int argc, char **argv)
     } else if (algorithm == 3)
     {
         BottomLeft solver = BottomLeft();
+        solver.solve(&problem);
+    } else if (algorithm == 4)
+    {
+        GeneticAlgorithm solver = GeneticAlgorithm();
         solver.solve(&problem);
     }
     

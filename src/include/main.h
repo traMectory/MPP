@@ -7,6 +7,7 @@
 #include "miscellaneous.h"
 #include "metaheuristic1.h"
 #include "bottom_left.h"
+#include "genetic_algorithm.h"
 
 bool visualize = false;
 int algorithm = 0;

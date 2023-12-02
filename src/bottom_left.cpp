@@ -16,9 +16,11 @@ SolveStatus BottomLeft::solve(Problem *prob) {
 SolveStatus bl(Polygon container, std::vector<Item*> items, std::vector<Candidate>* candidates, long long* score) {
     Polygon_with_holes complement;
     CGAL::complement(container, complement);
+    std::vector<Item> items_copy;
     Item *item;
     for (int i = 0; i < items.size(); i++) {
-        item = items[i];
+        items_copy.push_back(*items[i]);
+        item = &items_copy[i];
         while (item->quantity > 0) {
             complement = pack_into(item, complement, candidates, score, i);
             item->quantity--;
