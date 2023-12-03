@@ -7,6 +7,7 @@
 #include "miscellaneous.h"
 #include "toposv2.h"
 #include "geneticalgorithm.h"
+#include "clusteredproblem.h"
 
 bool visualize = false;
 int algorithm = 0;

@@ -300,12 +300,16 @@ SolveStatus LeftLayerOne::solve(Problem *prob)
             // }
 
             // prob->addCandidate(mod, 1);
-            Candidate bestC;
+            /*Candidate bestC;
             bestC.index = bestItem->index;
             bestC.poly = bestCand;
             bestC.x_translation = (int) (bestTrans.x().interval().pair().first + bestTrans.x().interval().pair().second) / 2;
             bestC.y_translation = (int) (bestTrans.y().interval().pair().first + bestTrans.y().interval().pair().second) / 2;
-            prob->addCandidate(bestC, bestItem->value);
+            prob->addCandidate(bestC, bestItem->value);*/
+            
+            NT x_translation = (int)(bestTrans.x().interval().pair().first + bestTrans.x().interval().pair().second) / 2;
+            NT y_translation = (int)(bestTrans.y().interval().pair().first + bestTrans.y().interval().pair().second) / 2;
+            prob->addCandidate(bestItem, x_translation, y_translation);
             bestItem->quantity--;
         }
     }

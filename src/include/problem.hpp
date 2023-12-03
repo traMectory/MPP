@@ -15,6 +15,9 @@
 #include <CGAL/Quotient.h>
 #include <CGAL/CORE_BigRat.h>
 #include <CGAL/minkowski_sum_2.h>
+#include <CGAL/convex_hull_2.h>
+#include <CGAL/convex_hull_traits_adapter_2.h>
+#include <CGAL/property_map.h>
 
 using json = nlohmann::json;
 
@@ -33,6 +36,9 @@ typedef K::Segment_2 Segment;
 typedef CGAL::Bbox_2 Bbox;
 typedef CGAL::Iso_rectangle_2<K> Iso_rectangle;
 typedef Polygon::Vertex_circulator VertexCirculator;
+typedef CGAL::Convex_hull_traits_adapter_2<K, CGAL::Pointer_property_map<Point>::type > Convex_hull_traits;
+typedef CGAL::Aff_transformation_2<K>  Transformation;
+typedef CGAL::Vector_2<K> Vector;
 
 struct Edge
 {
@@ -60,7 +66,7 @@ struct Candidate
 
 class Problem
 {
-private:
+protected:
     std::string name;
     std::string type;
     std::vector<std::string> comments;
@@ -121,7 +127,10 @@ public:
 
     bool test() { return true; };
 
+    [[deprecated("void addCandidate(Item* item, NT x_translation, NT y_translation) instead")]]
     void addCandidate(Candidate cand, int value) { candidates.push_back(cand); score += value; };
+
+    virtual void addCandidate(Item* item, NT x_translation, NT y_translation) { addCandidate({ item->index, item->poly, x_translation, y_translation }, item->value); };
 
     Polygon getContainer() { return container; };
     std::vector<Item*> getItems() { return items; };

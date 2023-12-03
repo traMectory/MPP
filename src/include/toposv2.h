@@ -3,6 +3,8 @@
 #include "problem.hpp"
 #include <CGAL/minkowski_sum_2.h>
 
+void toIPE2(std::string path, Polygon boundary, std::vector<Polygon> polygons, std::vector<Point> points);
+
 enum joinMode { EXACT, APPROXIMATE, LEFT_EXTEND };
 
 class Toposv2 : public Solver
