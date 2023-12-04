@@ -9,5 +9,5 @@
 #include "geneticalgorithm.h"
 #include "clusteredproblem.h"
 
-bool visualize = false;
-int algorithm = 0;
+bool visualize = true;
+int algorithm = 3;
