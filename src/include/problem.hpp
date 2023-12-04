@@ -130,7 +130,13 @@ public:
     [[deprecated("void addCandidate(Item* item, NT x_translation, NT y_translation) instead")]]
     void addCandidate(Candidate cand, int value) { candidates.push_back(cand); score += value; };
 
-    virtual void addCandidate(Item* item, NT x_translation, NT y_translation) { addCandidate({ item->index, item->poly, x_translation, y_translation }, item->value); };
+    virtual void addCandidate(Item* item, NT x_translation, NT y_translation) {
+        Polygon poly;
+        for (auto v : item->poly.vertices()) {
+            poly.push_back(Point(v.x() + x_translation, v.y() + y_translation));
+        }
+        addCandidate({ item->index, poly, x_translation, y_translation }, item->value); 
+    };
 
     Polygon getContainer() { return container; };
     std::vector<Item*> getItems() { return items; };

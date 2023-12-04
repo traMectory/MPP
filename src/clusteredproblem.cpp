@@ -13,169 +13,183 @@ ClusteredProblem::ClusteredProblem(char* file_name) : Problem(file_name)
 }
 
 void ClusteredProblem::addCandidate(Item* item, NT x_translation, NT y_translation) {
-	std::cout << "hi\n";
 	if (item->index == -1) {
 		//candidate is cluster
 		Cluster* c = (Cluster*)item;
 		for (size_t i = 0; i < c->packedItems.size(); i++)
 		{
-			std::cout << i << "\n";
-			Problem::addCandidate({ c->packedItems[i]->index, c->packedItems[i]->poly, c->x_translations[i] + x_translation, c->y_translations[i] + y_translation }, c->packedItems[i]->value);
+			Problem::addCandidate(c->packedItems[i], c->x_translations[i] + x_translation, c->y_translations[i] + y_translation);
 		}
 	}
 	else {
 		//candidate is normal item
-		Problem::addCandidate({ item->index, item->poly, x_translation, y_translation }, item->value);
+		Problem::addCandidate(item, x_translation, y_translation);
 	}
 }
 
 void ClusteredProblem::cluster()
 {
-	int length = items.size();
-	for (size_t i = 0; i < length; i++)
+	for (size_t l = 0; l < 1; l++)
 	{
-		if (items[i]->quantity > 0 && !items[i]->poly.is_convex()) {
-			NT bestEval;
-			Point bestAttachment;
-			size_t bestIndex;
-			Polygon bestPoly;
+		int length = items.size();
+		for (size_t i = 0; i < length; i++)
+		{
+			if (items[i]->quantity > 0 && !items[i]->poly.is_convex()) {
+				NT bestEval;
+				Point bestAttachment;
+				size_t bestIndex;
+				Polygon bestPoly;
 
-			std::vector<Polygon> vacancies1;
-			getHullVacancies(items[i]->poly, vacancies1);
-			//toIPE2("test.ipe", items[i]->poly, vacancies1, {});
-			
-			for (size_t j = 0; j < length; j++)
-			{
-				if (items[j]->quantity > 0 && (i != j || items[i]->quantity > 1)) {
-					Point attachmentPoint;
-					attachPoly(items[i], items[j], attachmentPoint);
-					
-					//HACK: placedPoly causes errors in debug mode, currently only works in release
-					Transformation translate(CGAL::TRANSLATION, Vector(attachmentPoint.x(), attachmentPoint.y()));
-					Polygon placedPoly = transform(translate, items[j]->poly);
-					
-					//evaluate cluster according to two criteria
-					NT eval = 0;
+				std::vector<Polygon> vacancies1;
+				getHullVacancies(items[i]->poly, vacancies1);
+				//toIPE2("test.ipe", items[i]->poly, vacancies1, {});
 
-					std::vector<Polygon> vacancies2;
-					getHullVacancies(placedPoly, vacancies2);
-					//if (j == 876)
-					//	toIPE2("test.ipe", placedPoly, vacancies2, {});
+				for (size_t j = 0; j < items.size(); j++)
+				{
+					if (items[j]->quantity > 0 && (i != j || items[i]->quantity > 1)) {
+						Point attachmentPoint;
+						attachPoly(items[i], items[j], attachmentPoint);
 
-					//criterion 1
-					NT c1 = 0;
-					for  (auto v : vacancies1)
-					{
-						std::vector<Polygon_with_holes> occupied;
-						CGAL::intersection(placedPoly, v, std::back_inserter(occupied));
-						if (occupied.size() > 0) {
-							NT area = 0;
-							for (auto occ : occupied) {
-								area += occ.outer_boundary().area();
+						//HACK: placedPoly causes errors in debug mode, currently only works in release
+						Transformation translate(CGAL::TRANSLATION, Vector(attachmentPoint.x(), attachmentPoint.y()));
+						Polygon placedPoly = transform(translate, items[j]->poly);
+
+						//evaluate cluster according to two criteria
+						NT eval = 0;
+
+						std::vector<Polygon> vacancies2;
+						getHullVacancies(placedPoly, vacancies2);
+						//if (j == 876)
+						//	toIPE2("test.ipe", placedPoly, vacancies2, {});
+
+						//criterion 1 - intersection of convex hull vacancies
+						NT c1 = 0;
+						for (auto v : vacancies1)
+						{
+							std::vector<Polygon_with_holes> occupied;
+							CGAL::intersection(placedPoly, v, std::back_inserter(occupied));
+							if (occupied.size() > 0) {
+								NT area = 0;
+								for (auto occ : occupied) {
+									area += occ.outer_boundary().area();
+								}
+								c1 += area / v.area();
 							}
-							c1 += area / v.area();
+						}
+						NT c2 = 0;
+
+						for (auto v : vacancies2)
+						{
+							//toIPE2("test.ipe", hull2, { items[i]->poly, v }, {});
+							std::vector<Polygon_with_holes> occupied;
+							CGAL::intersection(items[i]->poly, v, std::back_inserter(occupied));
+							if (occupied.size() > 0) {
+								NT area = 0;
+								for (auto occ : occupied) {
+									area += occ.outer_boundary().area();
+								}
+								c2 += area / v.area();
+							}
+						}
+
+						eval += std::max(c1, c2);
+
+						//criterion 2 - utilization of joined convex hull
+						Polygon joinedHull;
+						std::vector<Point> points;
+						for (auto vert : items[i]->poly.vertices()) {
+							points.push_back(vert);
+						}
+						for (auto vert : placedPoly.vertices()) {
+							points.push_back(vert);
+						}
+						CGAL::convex_hull_2(points.begin(), points.end(), std::back_inserter(joinedHull));
+						eval += (items[i]->poly.area() + placedPoly.area()) / joinedHull.area();
+
+						if (eval > bestEval) {
+							bestEval = eval;
+							bestIndex = j;
+							Polygon_with_holes joinedPoly;
+							CGAL::join(items[i]->poly, placedPoly, joinedPoly);
+							bestPoly = joinedPoly.outer_boundary();
+							bestAttachment = attachmentPoint;
 						}
 					}
-					NT c2 = 0;
-					for (auto v : vacancies2)
-					{
-						//toIPE2("test.ipe", hull2, { items[i]->poly, v }, {});
-						std::vector<Polygon_with_holes> occupied;
-						CGAL::intersection(items[i]->poly, v, std::back_inserter(occupied));
-						if (occupied.size() > 0) {
-							NT area = 0;
-							for (auto occ : occupied) {
-								area += occ.outer_boundary().area();
-							}
-							c2 += area / v.area();
+				}
+				if (bestEval > 2) {
+					//cluster has been found
+					//toIPE2("test.ipe", items[i]->poly, { bestPoly }, {});
+					size_t quantity = i != bestIndex ? std::min(items[i]->quantity, items[bestIndex]->quantity) : items[i]->quantity / 2;
+					items[i]->quantity -= quantity;
+					items[bestIndex]->quantity -= quantity;
+
+					//create new clustered item
+					std::vector<Item*> contained;
+					std::vector<NT> x_translations;
+					std::vector<NT> y_translations;
+
+					//add fixed item to new cluster
+					if (items[i]->index == -1) {
+						//contained item is a cluster itself
+						Cluster* c = (Cluster*)items[i];
+						for (size_t k = 0; k < c->packedItems.size(); k++)
+						{
+							contained.push_back(c->packedItems[k]);
+							x_translations.push_back(c->x_translations[k]);
+							y_translations.push_back(c->y_translations[k]);
 						}
 					}
-
-					eval += std::max(c1, c2);
-
-					if (eval > bestEval) {
-						bestEval = eval;
-						bestIndex = j;
-						Polygon_with_holes joinedPoly;
-						CGAL::join(items[i]->poly, placedPoly, joinedPoly);
-						bestPoly = joinedPoly.outer_boundary();
-						bestAttachment = attachmentPoint;
+					else {
+						//contained item is not a cluster
+						contained.push_back(items[i]);
+						x_translations.push_back(0);
+						y_translations.push_back(0);
 					}
-				}
-			}
-			if (bestEval > 0) {
-				//cluster has been found
-				//toIPE2("test.ipe", items[i]->poly, { bestPoly }, {});
-				size_t quantity = i != bestIndex ? std::min(items[i]->quantity, items[bestIndex]->quantity) : items[i]->quantity / 2;
-				items[i]->quantity -= quantity;
-				items[bestIndex]->quantity -= quantity;
 
-				//create new clustered item
-				std::vector<Item*> contained;
-				std::vector<NT> x_translations;
-				std::vector<NT> y_translations;
-
-				//add fixed item to new cluster
-				if (items[i]->index == -1) {
-					//contained item is a cluster itself
-					Cluster* c = (Cluster*)items[i];
-					for (size_t k = 0; k < c->packedItems.size(); k++)
-					{
-						contained.push_back(c->packedItems[k]);
-						x_translations.push_back(c->x_translations[k]);
-						y_translations.push_back(c->y_translations[k]);
+					//add movable item to new cluster
+					if (items[bestIndex]->index == -1) {
+						//contained item is a cluster itself
+						Cluster* c = (Cluster*)items[bestIndex];
+						for (size_t k = 0; k < c->packedItems.size(); k++)
+						{
+							contained.push_back(c->packedItems[k]);
+							x_translations.push_back(c->x_translations[k] + bestAttachment.x());
+							y_translations.push_back(c->y_translations[k] + bestAttachment.y());
+						}
 					}
-				}
-				else {
-					//contained item is not a cluster
-					contained.push_back(items[i]);
-					x_translations.push_back(0);
-					y_translations.push_back(0);
-				}
-
-				//add movable item to new cluster
-				if (items[bestIndex]->index == -1) {
-					//contained item is a cluster itself
-					Cluster* c = (Cluster*)items[bestIndex];
-					for (size_t k = 0; k < c->packedItems.size(); k++)
-					{
-						contained.push_back(c->packedItems[k]);
-						x_translations.push_back(c->x_translations[k]);
-						y_translations.push_back(c->y_translations[k]);
+					else {
+						//contained item is not a cluster
+						contained.push_back(items[bestIndex]);
+						x_translations.push_back(bestAttachment.x());
+						y_translations.push_back(bestAttachment.y());
 					}
-				}
-				else {
-					//contained item is not a cluster
-					contained.push_back(items[bestIndex]);
-					x_translations.push_back(bestAttachment.x());
-					y_translations.push_back(bestAttachment.y());
-				}
 
-				Cluster* newCluster = new Cluster(-1, bestPoly, {}, quantity, items[i]->value + items[bestIndex]->value, contained, x_translations, y_translations);
+					Cluster* newCluster = new Cluster(-1, bestPoly, {}, quantity, items[i]->value + items[bestIndex]->value, contained, x_translations, y_translations);
 
-				//delete old items if quantity is 0 now
-				//TODO: inefficient deletion using vector for items, maybe switch to list instead
-				if (i != bestIndex) {
-					if (items[bestIndex]->quantity == 0) {
-						items.erase(items.begin() + bestIndex);
-						--length;
-						if (bestIndex < i)
+					//delete old items if quantity is 0 now
+					//TODO: inefficient deletion using vector for items, maybe switch to list instead
+					if (i != bestIndex) {
+						if (items[bestIndex]->quantity == 0) {
+							items.erase(items.begin() + bestIndex);
+							--length;
+							if (bestIndex < i)
+								--i;
+						}
+						if (items[i]->quantity == 0) {
+							items.erase(items.begin() + i);
 							--i;
+							--length;
+						}
 					}
-					if (items[i]->quantity == 0) {
+					else if (items[i]->quantity == 0) {
 						items.erase(items.begin() + i);
 						--i;
 						--length;
 					}
-				}
-				else if (items[i]->quantity == 0) {
-					items.erase(items.begin() + i);
-					--i;
-					--length;
-				}
 
-				items.push_back(newCluster);
-				std::cout << items.size() << std::endl;
+					items.push_back(newCluster);
+					std::cout << items.size() << std::endl;
+				}
 			}
 		}
 	}
@@ -256,7 +270,10 @@ void ClusteredProblem::getHullVacancies(const Polygon& poly, std::vector<Polygon
 			//Concave part
 			if (!insideConcave) {
 				insideConcave = true;
-				vacancy.push_back(vertices[i-1]);
+				if (i == 0)
+					vacancy.push_back(vertices[vertices.size() - 1]);
+				else
+					vacancy.push_back(vertices[i-1]);
 			}
 			if (insideConcave)
 				vacancy.push_back(vertices[i]);
@@ -270,10 +287,12 @@ void ClusteredProblem::getHullVacancies(const Polygon& poly, std::vector<Polygon
 				vacancies.push_back(vacancy);
 				vacancy = Polygon();
 			}
-			hullPrev = hullNext;
-			++hullNext;
-			if (hullNext >= CHIndices.size())
-				hullNext = 0;
+			if (i == CHIndices[hullNext]) {
+				hullPrev = hullNext;
+				++hullNext;
+				if (hullNext >= CHIndices.size())
+					hullNext = 0;
+			}
 		}
 		++i;
 		if (i >= vertices.size())
