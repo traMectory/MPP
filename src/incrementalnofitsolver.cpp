@@ -147,7 +147,7 @@ bool IncrementalNoFitSolver::findBestPlacement(ItemWithNoFit* testedItem, Point&
 NT IncrementalNoFitSolver::evalPlacement(Polygon& placedPoly, int value) {
 	NT eval = 0;
 	
-	CGAL::squared_distance(Point(placedPoly.right_vertex()->x(), placedPoly.top_vertex()->y()), bottomLeft) - value;
+	eval += CGAL::squared_distance(Point(placedPoly.right_vertex()->x(), placedPoly.top_vertex()->y()), bottomLeft) - value;
 
 	return eval;
 }
