@@ -5,6 +5,8 @@
 
 enum joinMode { EXACT, APPROXIMATE, LEFT_EXTEND };
 
+void toIPE2(std::string path, Polygon boundary, std::vector<Polygon> polygons, std::vector<Point> points);
+
 class Toposv2 : public Solver
 {
 public:

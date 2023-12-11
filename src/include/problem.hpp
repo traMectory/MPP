@@ -15,10 +15,13 @@
 #include <CGAL/Quotient.h>
 #include <CGAL/CORE_BigRat.h>
 #include <CGAL/minkowski_sum_2.h>
+#include <CGAL/convex_hull_2.h>
+#include <CGAL/convex_hull_traits_adapter_2.h>
+#include <CGAL/property_map.h>
+#include <CGAL/Small_side_angle_bisector_decomposition_2.h>
 
 using json = nlohmann::json;
 
-//typedef CGAL::Lazy_exact_nt<CGAL::Quotient<CGAL::MP_Float>> NT;
 //typedef double NT;
 typedef CGAL::Exact_predicates_exact_constructions_kernel K;
 //typedef CGAL::Cartesian<NT> K;
@@ -33,6 +36,9 @@ typedef K::Segment_2 Segment;
 typedef CGAL::Bbox_2 Bbox;
 typedef CGAL::Iso_rectangle_2<K> Iso_rectangle;
 typedef Polygon::Vertex_circulator VertexCirculator;
+typedef CGAL::Aff_transformation_2<K> Transformation;
+typedef CGAL::Vector_2<K> Vector;
+typedef CGAL::Convex_hull_traits_adapter_2<K, CGAL::Pointer_property_map<Point>::type > Convex_hull_traits;
 
 struct Edge
 {
