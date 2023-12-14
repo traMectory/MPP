@@ -2,11 +2,13 @@
 #include "solver.h"
 #include "problem.hpp"
 #include <CGAL/minkowski_sum_2.h>
+#include "clipper2/clipper.h"
 
 struct ItemWithNoFit {
     Item* item;
-    Polygon_with_holes noFit;
-    Polygon inversePoly;
+    Clipper2Lib::Path64 poly;
+    Clipper2Lib::Paths64 innerFit;
+    Clipper2Lib::Path64 inversePoly;
 };
 
 class IncrementalNoFitSolver : public Solver
@@ -16,7 +18,7 @@ protected:
 
     Problem* problem;
 
-    Polygon placedPieces;
+    Clipper2Lib::Path64 placedPieces;
 
     std::list<ItemWithNoFit*> itemsWithNoFit;
 
@@ -24,24 +26,24 @@ protected:
 
     void initNoFits(size_t index);
 
-    virtual void additionalInits() { bottomLeft = Point(problem->getContainer().left_vertex()->x(), problem->getContainer().bottom_vertex()->y()); };
+    void additionalInits() { bottomLeft = Point(problem->getContainer().left_vertex()->x(), problem->getContainer().bottom_vertex()->y()); };
 
-    void updateNoFits(Candidate& addedCand);
+    void updateNoFits(Clipper2Lib::Path64& addedPiece);
 
-    virtual void additionalUpdates(Candidate& addedCand) {};
+    void additionalUpdates(Clipper2Lib::Path64& addedPiece) {};
 
-    bool findBestItem(ItemWithNoFit* &bestItem, Polygon& placedPoly, Point& translation);
+    bool findBestItem(ItemWithNoFit* &bestItem, Clipper2Lib::Path64& placedPoly, Clipper2Lib::Point64& translation);
 
-    virtual bool findBestPlacement(ItemWithNoFit* testedItem, Point& attachmentPoint);
+    bool findBestPlacement(ItemWithNoFit* testedItem, Clipper2Lib::Point64& attachmentPoint);
 
-    virtual NT evalPlacement(Polygon& placedPoly, int value);
+    int64_t evalPlacement(Clipper2Lib::Path64& placedPoly, Clipper2Lib::Point64& translation, int value);
 
-    virtual bool evalIsBetter(NT first, NT second) {
+    bool evalIsBetter(int64_t first, int64_t second) {
         //returns true iff first position eval is better than second
         return first < second;
     };
 
-    void addNewPiece(Item* item, Polygon& placedPoly, Point& translation);
+    void addNewPiece(Item* item, Clipper2Lib::Path64& placedPoly, Clipper2Lib::Point64& translation);
 public:
     IncrementalNoFitSolver() {};
 

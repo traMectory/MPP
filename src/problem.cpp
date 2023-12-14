@@ -84,7 +84,7 @@ Problem::Problem(char *file_name)
             it.push_back(t);
         }
 
-        items.push_back(new Item(index, it, {}, item["quantity"], item["value"]));
+        items.push_back(new Item({ index, it, {}, item["quantity"], item["value"] }));
         index++;
     }
 }
