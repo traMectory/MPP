@@ -8,7 +8,3 @@ include_directories(include tools)
 
 add_executable(mpp ${sources})
 target_link_libraries(mpp CGAL::CGAL)
-
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(Clipper2 REQUIRED IMPORTED_TARGET Clipper2)
-target_link_libraries(mpp PkgConfig::Clipper2)

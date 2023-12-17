@@ -1,12 +1,12 @@
 #include "incrementalnofitsolver.h"
 
-void pathsToIPE(std::string path, Clipper2Lib::Path64 boundary, std::vector<Clipper2Lib::Path64> polygons)
+void pathsToIPE(std::string path, Path boundary, std::vector<Path> polygons)
 {
 	std::ofstream o(path);
 
 	// Find extreme coords of the graph (if you use CGAL you can use inbuild functions instead)
 
-	long long xmin=999999999, xmax, ymin = 9999999999, ymax;
+	NT xmin=999999999, xmax=-999999999, ymin = 9999999999, ymax=-999999999;
 	for (auto p : boundary)
 	{
 
@@ -85,7 +85,7 @@ void pathsToIPE(std::string path, Clipper2Lib::Path64 boundary, std::vector<Clip
 
 	for (auto v : boundary)
 	{
-		o << ((v.x - xmin) * 560 / scale + 16) << " " << (v.y * 560 / scale + 272) << " " << (first ? "m" : "l") << "\n";
+		o << (((double) (v.x - xmin) * 560) / scale + 16) << " " << (((double)v.y * 560) / scale + 272) << " " << (first ? "m" : "l") << "\n";
 		first = false;
 	}
 	o << "h\n</path>\n";
@@ -98,7 +98,7 @@ void pathsToIPE(std::string path, Clipper2Lib::Path64 boundary, std::vector<Clip
 
 		for (auto v : poly)
 		{
-			o << ((v.x - xmin) * 560 / scale + 16) << " " << (v.y * 560 / scale + 272) << " " << (first ? "m" : "l") << "\n";
+			o << (((double)(v.x - xmin) * 560) / scale + 16) << " " << (((double) v.y * 560) / scale + 272) << " " << (first ? "m" : "l") << "\n";
 			first = false;
 		}
 		o << "h\n</path>\n";
@@ -117,6 +117,16 @@ void pathsToIPE(std::string path, Clipper2Lib::Path64 boundary, std::vector<Clip
 	{
 		printf("Could not open IPE");
 	}
+}
+
+void pathsToIPE(std::string path, Path boundary, std::vector<Paths> polygons) {
+	std::vector<Path> flattened;
+	for (auto polys : polygons) {
+		for (auto poly : polys) {
+			flattened.push_back(poly);
+		}
+	}
+	pathsToIPE(path, boundary, flattened);
 }
 
 SolveStatus IncrementalNoFitSolver::solve(Problem* prob)
@@ -140,8 +150,11 @@ SolveStatus IncrementalNoFitSolver::solve(Problem* prob)
 			if (bestItem->item->quantity <= 0)
 				itemsWithNoFit.remove(bestItem);
 
+			//pathsToIPE("test.ipe", problem->getContainer(), { placedPieces,{ placedPoly }, bestItem->innerFit });
 			addNewPiece(bestItem->item, placedPoly, translation);
 			++c;
+			if (c % 100 == 0)
+				pathsToIPE("test.ipe", problem->getContainer(), placedPieces);
 			std::cout << c << " pieces placed\n";
 		}
 		//toIPE2("test.ipe", problem->getContainer(), { placedPieces }, {});
@@ -150,78 +163,71 @@ SolveStatus IncrementalNoFitSolver::solve(Problem* prob)
 	return SolveStatus::Feasible;
 }
 
+void IncrementalNoFitSolver::precomputeNoFits(Item* item, Path& inversePoly, std::map<int, Paths>& result)
+{
+	for (auto other : items) {
+		Paths noFit = Clipper2Lib::MinkowskiSum(other->poly, inversePoly, true);
+		for (auto region : noFit) {
+			if (Clipper2Lib::Area(region) > Clipper2Lib::Area(other->poly)) {
+				noFit = { region };
+				break;
+			}
+		}
+		result.insert(std::pair<int, Paths>(other->index, noFit));
+	}
+	std::cout << item->index << ": noFits done\n";
+}
+
 void IncrementalNoFitSolver::initNoFits(size_t index) {
 	//Initialize no-fit polygon for each item as polygon around container with a hole for each free space
 
-	Polygon container = problem->getContainer();
+	container = problem->getContainer();
 	int wall = 10e6;
-	/*std::vector<Clipper2Lib::Point64> corners = {Clipper2Lib::Point64(container.left_vertex()->x() - wall, container.top_vertex()->y() + wall),
-		Clipper2Lib::Point64(container.left_vertex()->x() - wall, container.bottom_vertex()->y() - wall),
-		Clipper2Lib::Point64(container.right_vertex()->x() + wall, container.bottom_vertex()->y() - wall),
-		Clipper2Lib::Point64(container.right_vertex()->x() + wall, container.top_vertex()->y() + wall) };
-	Clipper2Lib::Paths64 inverseContainer({ corners });
-	container.reverse_orientation();*/
-	Clipper2Lib::Path64 cont;
-	for (auto p : container.vertices()) {
-		cont.push_back({CGAL::to_double(p.x()), CGAL::to_double(p.y()) });
-	}
-	//inverseContainer.push_back(cont);
 	int c = 0;
-	auto items = problem->getItems();
+	items = problem->getItems();
 	size_t end = std::min(items.size(), index + batchSize);
 	for (size_t i = index; i < end; i++) {
-		auto start = std::chrono::system_clock::now();
-		Clipper2Lib::Path64 inverseNext;
-		Clipper2Lib::Path64 convertedPoly;
+		Path inverseNext;
 		for (int j = 0; j < items[i]->poly.size(); j++)
 		{
-			Point p = items[i]->poly.vertices()[j];
-			inverseNext.push_back({ CGAL::to_double(-p.x()), CGAL::to_double(-p.y()) });
-			convertedPoly.push_back({ CGAL::to_double(p.x()), CGAL::to_double(p.y()) });
+			Point p = items[i]->poly[j];
+			inverseNext.push_back({ -p.x, -p.y });
 		}
-		auto innerFit = { Clipper2Lib::MinkowskiSum(cont, inverseNext, true)[1] };
-		/*if (index > 0) {
-			CGAL::join(noFitContainer, CGAL::minkowski_sum_2(placedPieces, inverseNext), noFit);
+
+		auto innerFit = Clipper2Lib::MinkowskiSum(container, inverseNext, true);
+		for (auto region : innerFit) {
+			if (Clipper2Lib::Area(region) < Clipper2Lib::Area(container)) {
+				innerFit = { region };
+				break;
+			}
 		}
-		else
-			noFit = noFitContainer;*/
-		itemsWithNoFit.push_back(new ItemWithNoFit({ items[i], convertedPoly, innerFit, inverseNext }));
+		
+		std::map<int, Paths> noFits;
+		precomputeNoFits(items[i], inverseNext, noFits);
+		itemsWithNoFit.push_back(new ItemWithNoFit({ items[i], innerFit, noFits }));
 		++c;
 	}
 }
 
-void IncrementalNoFitSolver::updateNoFits(Clipper2Lib::Path64& addedPiece) {
+void IncrementalNoFitSolver::updateNoFits(Item* addedPiece, Point& translation) {
 
-	long long timer = 0;
 	//update no-fit polygons
 	for (auto it : itemsWithNoFit) {
-		auto start = std::chrono::system_clock::now();
-		Clipper2Lib::Paths64 noFitNew = Clipper2Lib::MinkowskiSum(addedPiece, it->inversePoly, true);
-		auto end = std::chrono::system_clock::now();
-		//pathsToIPE("test.ipe", it->innerFit[0], { noFitNew[0], addedPiece, it->inversePoly });
-		Polygon_with_holes joinedNoFit;
-		it->innerFit = Clipper2Lib::Difference(it->innerFit , noFitNew, Clipper2Lib::FillRule::NonZero);
-		std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "\n";
+		Paths noFitNew = Clipper2Lib::TranslatePaths(it->noFits.find(addedPiece->index)->second, translation.x, translation.y);
+		it->innerFit = Clipper2Lib::Difference(it->innerFit, { noFitNew }, Clipper2Lib::FillRule::NonZero);
 	}
-	std::cout << timer / 1000000 << "\n";
 }
 
-void IncrementalNoFitSolver::addNewPiece(Item* item, Clipper2Lib::Path64& newPiece, Clipper2Lib::Point64& translation) {
-	//Transformation translate(CGAL::TRANSLATION, Vector(NT(translation.x), NT(translation.y)));
-	//Polygon newPieceCGAL = transform(translate, item->poly);
-	Candidate addedCand;//{ item->index, Polygon(), NT(translation.x), NT(translation.y) });
-	//problem->addCandidate(addedCand, item->value);
-	updateNoFits(newPiece);
-	additionalUpdates(newPiece);
-	Polygon_with_holes newPlaced;
-	/*if (CGAL::join(placedPieces, newPiece, newPlaced))
-		placedPieces = newPlaced.outer_boundary();
-	else
-		placedPieces = newPiece;*/
+void IncrementalNoFitSolver::addNewPiece(Item* item, Path& newPiece, Point& translation) {
+	Candidate addedCand({ item->index, newPiece, translation.x, translation.y });
+	problem->addCandidate(addedCand, item->value);
+	updateNoFits(item, translation);
+	additionalUpdates(item, translation);
+	placedPieces = Clipper2Lib::Union(placedPieces, { newPiece }, Clipper2Lib::FillRule::NonZero);
 }
 
 
-bool IncrementalNoFitSolver::findBestItem(ItemWithNoFit* &bestItem, Clipper2Lib::Path64& placedPoly, Clipper2Lib::Point64& translation) {
+bool IncrementalNoFitSolver::findBestItem(ItemWithNoFit* &bestItem, Path& placedPoly, Point& translation) {
 	bool itemFound = false;
 
 	int64_t bestEval = evalIsBetter(1, 0) ? std::numeric_limits<int64_t>::min() : std::numeric_limits<int64_t>::max();
@@ -229,8 +235,7 @@ bool IncrementalNoFitSolver::findBestItem(ItemWithNoFit* &bestItem, Clipper2Lib:
 		Clipper2Lib::Point64 attachmentPoint;
 		if (findBestPlacement(it, attachmentPoint)) {
 			itemFound = true;
-			Clipper2Lib::Path64 currentPlaced = it->poly;
-			Clipper2Lib::TranslatePath(currentPlaced, attachmentPoint.x, attachmentPoint.y);
+			Path currentPlaced = Clipper2Lib::TranslatePath(it->item->poly, attachmentPoint.x, attachmentPoint.y);
 
 			int64_t currentEval = evalPlacement(currentPlaced, attachmentPoint, it->item->value);
 			if (evalIsBetter(currentEval, bestEval)) {
@@ -252,10 +257,12 @@ bool IncrementalNoFitSolver::findBestPlacement(ItemWithNoFit* testedItem, Clippe
 
 	bool positionFound = false;
 	attachmentPoint = Clipper2Lib::Point64(std::numeric_limits<int64_t>::max(), std::numeric_limits<int64_t>::min());
-	for (auto p : testedItem->innerFit[0]) {
-		if (p.x < attachmentPoint.x || (p.x == attachmentPoint.x && p.y < attachmentPoint.y)) {
-			attachmentPoint = p;
-			positionFound = true;
+	for (auto area : testedItem->innerFit) {
+		for (auto p : area) {
+			if (p.x < attachmentPoint.x || (p.x == attachmentPoint.x && p.y < attachmentPoint.y)) {
+				attachmentPoint = p;
+				positionFound = true;
+			}
 		}
 	}
 
@@ -271,7 +278,7 @@ int64_t IncrementalNoFitSolver::evalPlacement(Clipper2Lib::Path64& placedPoly, C
 }
 
 
-void IncrementalNoFitSolver::getHullVacancies(const Polygon& poly, std::vector<Polygon>& vacancies) {
+/*void IncrementalNoFitSolver::getHullVacancies(const Polygon& poly, std::vector<Polygon>& vacancies) {
 
 	auto vertices = poly.vertices();
 	//calculate convex hull
@@ -323,4 +330,4 @@ void IncrementalNoFitSolver::getHullVacancies(const Polygon& poly, std::vector<P
 		if (i >= vertices.size())
 			i = 0;
 	} while (i != start);
-}
+}*/

@@ -6,7 +6,7 @@
 #include <json.hpp>
 #include <iostream>
 #include "graphIPE.hpp"
-#include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
+/*#include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
 #include <CGAL/Exact_predicates_exact_constructions_kernel.h>
 #include <CGAL/Polygon_with_holes_2.h>
 #include <CGAL/Boolean_set_operations_2.h>
@@ -18,11 +18,12 @@
 #include <CGAL/convex_hull_2.h>
 #include <CGAL/convex_hull_traits_adapter_2.h>
 #include <CGAL/property_map.h>
-#include <CGAL/Small_side_angle_bisector_decomposition_2.h>
+#include <CGAL/Small_side_angle_bisector_decomposition_2.h>*/
+#include <clipper2/clipper.h>
 
 using json = nlohmann::json;
 
-//typedef double NT;
+/*//typedef double NT;
 typedef CGAL::Exact_predicates_exact_constructions_kernel K;
 //typedef CGAL::Cartesian<NT> K;
 typedef K::RT NT;
@@ -38,7 +39,12 @@ typedef CGAL::Iso_rectangle_2<K> Iso_rectangle;
 typedef Polygon::Vertex_circulator VertexCirculator;
 typedef CGAL::Aff_transformation_2<K> Transformation;
 typedef CGAL::Vector_2<K> Vector;
-typedef CGAL::Convex_hull_traits_adapter_2<K, CGAL::Pointer_property_map<Point>::type > Convex_hull_traits;
+typedef CGAL::Convex_hull_traits_adapter_2<K, CGAL::Pointer_property_map<Point>::type > Convex_hull_traits;*/
+
+typedef int64_t NT;
+typedef Clipper2Lib::Path64 Path;
+typedef Clipper2Lib::Paths64 Paths;
+typedef Clipper2Lib::Point64 Point;
 
 struct Edge
 {
@@ -49,8 +55,8 @@ struct Edge
 struct Item
 {
     int index;
-    Polygon poly;
-    std::vector<Polygon> inners;
+    Path poly;
+    std::vector<Paths> inners;
     int quantity;
     int value;
 
@@ -59,7 +65,7 @@ struct Item
 struct Candidate
 {
     int index;
-    Polygon poly;
+    Path poly;
     NT x_translation;
     NT y_translation;
 };
@@ -71,7 +77,7 @@ private:
     std::string type;
     std::vector<std::string> comments;
 
-    Polygon container;
+    Path container;
 
     std::vector<Candidate> candidates;
 
@@ -93,11 +99,11 @@ public:
 
     Problem(char *file_name);
 
-    Problem(Polygon cont, std::vector<Polygon> cands)
+    Problem(Path cont, std::vector<Path> cands)
     {
         container = cont;
         num_items = 0;
-        for (Polygon c : cands)
+        for (Path c : cands)
         {
             Item* it = new Item();
             it->poly = c;
@@ -129,7 +135,7 @@ public:
 
     void addCandidate(Candidate cand, int value) { candidates.push_back(cand); score += value; };
 
-    Polygon getContainer() { return container; };
+    Path getContainer() { return container; };
     std::vector<Item*> getItems() { return items; };
     std::vector<Candidate> getCandidates() { return candidates; };
     void prettyPrint() { std::cout << " - Layed " << candidates.size() << " items with a total value of " << score << std::endl; };

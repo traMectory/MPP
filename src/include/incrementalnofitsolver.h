@@ -6,50 +6,64 @@
 
 struct ItemWithNoFit {
     Item* item;
-    Clipper2Lib::Path64 poly;
-    Clipper2Lib::Paths64 innerFit;
-    Clipper2Lib::Path64 inversePoly;
+    Paths innerFit;
+    std::map<int, Paths> noFits;
 };
 
 class IncrementalNoFitSolver : public Solver
 {
 protected:
+    Problem* problem;
+    Path container;
+    std::vector<Item*> items;
+
     bool containerEmpty = true;
 
-    Problem* problem;
 
-    Clipper2Lib::Path64 placedPieces;
+    Paths placedPieces;
 
     std::list<ItemWithNoFit*> itemsWithNoFit;
 
     Point bottomLeft;
 
+    void precomputeNoFits(Item* item, Path& inversePoly, std::map<int, Paths>& result);
+
     void initNoFits(size_t index);
 
-    void additionalInits() { bottomLeft = Point(problem->getContainer().left_vertex()->x(), problem->getContainer().bottom_vertex()->y()); };
+    void additionalInits() {
+        NT xmin = std::numeric_limits<NT>::max(), ymin = std::numeric_limits<NT>::max();
+        for (auto p: problem->getContainer())
+        {
+            if (p.x < xmin)
+                xmin = p.x;
+            if (p.y < ymin)
+                ymin = p.y;
+        }
+        bottomLeft = Point(xmin, ymin);
+    };
 
-    void updateNoFits(Clipper2Lib::Path64& addedPiece);
+    void updateNoFits(Item* addedPiece, Point& translation);
 
-    void additionalUpdates(Clipper2Lib::Path64& addedPiece) {};
+    void additionalUpdates(Item* addedPiece, Point& translation) {};
 
-    bool findBestItem(ItemWithNoFit* &bestItem, Clipper2Lib::Path64& placedPoly, Clipper2Lib::Point64& translation);
+    bool findBestItem(ItemWithNoFit* &bestItem, Path& placedPoly, Point& translation);
 
-    bool findBestPlacement(ItemWithNoFit* testedItem, Clipper2Lib::Point64& attachmentPoint);
+    bool findBestPlacement(ItemWithNoFit* testedItem, Point& attachmentPoint);
 
-    int64_t evalPlacement(Clipper2Lib::Path64& placedPoly, Clipper2Lib::Point64& translation, int value);
+    int64_t evalPlacement(Path& placedPoly, Point& translation, int value);
 
     bool evalIsBetter(int64_t first, int64_t second) {
         //returns true iff first position eval is better than second
         return first < second;
     };
 
-    void addNewPiece(Item* item, Clipper2Lib::Path64& placedPoly, Clipper2Lib::Point64& translation);
+    void addNewPiece(Item* item, Path& placedPoly, Point& translation);
 public:
     IncrementalNoFitSolver() {};
 
     SolveStatus solve(Problem* prob);
 
-    static void getHullVacancies(const Polygon& poly, std::vector<Polygon>& vacancies);
+    //static void getHullVacancies(const Polygon& poly, std::vector<Polygon>& vacancies);
 
     size_t batchSize = 2090;
 

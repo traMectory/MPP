@@ -18,19 +18,19 @@ int main(int argc, char **argv)
 
     if (algorithm == 0)
     {
-        Msum solver = Msum();
-        solver.solve(problem);
+        //Msum solver = Msum();
+        //solver.solve(problem);
     }
     else if (algorithm == 1)
     {
-        LeftLayerOne solver = LeftLayerOne();
-        solver.solve(problem);
+        //LeftLayerOne solver = LeftLayerOne();
+        //solver.solve(problem);
     }
     else if (algorithm == 3)
     {
-        Toposv2 solver = Toposv2();
-        GeneticAlgorithm ga = GeneticAlgorithm(&solver);
-        ga.solve(problem);
+        //Toposv2 solver = Toposv2();
+        //GeneticAlgorithm ga = GeneticAlgorithm(&solver);
+        //ga.solve(problem);
     }
     else if (algorithm == 4)
     {
