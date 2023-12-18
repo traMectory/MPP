@@ -4,10 +4,14 @@
 #include <CGAL/minkowski_sum_2.h>
 #include "clipper2/clipper.h"
 
+typedef CGAL::Exact_predicates_exact_constructions_kernel K;
+typedef CGAL::Polygon_with_holes_2<K> Polygon_with_holes;
+typedef CGAL::Polygon_2<K> Polygon;
+
 struct ItemWithNoFit {
     Item* item;
     Paths innerFit;
-    std::map<int, Paths> noFits;
+    Polygon inversePoly;
 };
 
 class IncrementalNoFitSolver : public Solver
@@ -42,9 +46,9 @@ protected:
         bottomLeft = Point(xmin, ymin);
     };
 
-    void updateNoFits(Item* addedPiece, Point& translation);
+    void updateNoFits(Path& addedPiece);
 
-    void additionalUpdates(Item* addedPiece, Point& translation) {};
+    void additionalUpdates(Path& addedPiece) {};
 
     bool findBestItem(ItemWithNoFit* &bestItem, Path& placedPoly, Point& translation);
 
