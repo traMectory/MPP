@@ -6,8 +6,9 @@
 int main(int argc, char **argv)
 {
     parseOptions(argc, argv);
-    char files[16][150] = { 
-        "D:\\uni\\MA\\Packing\\Problems\\cgshop2024_benchmark\\instances\\random_cf1_64ac4991_50.cgshop2024_instance.json",
+    /*char files[2][150] = {
+        //"D:\\uni\\MA\\Packing\\Problems\\cgshop2024_benchmark\\instances\\jigsaw_cf1_7b534d0f_30.cgshop2024_instance.json"
+        /*"D:\\uni\\MA\\Packing\\Problems\\cgshop2024_benchmark\\instances\\random_cf1_64ac4991_50.cgshop2024_instance.json",
         "D:\\uni\\MA\\Packing\\Problems\\cgshop2024_benchmark\\instances\\random_cf1_x15dff42_50.cgshop2024_instance.json",
         "D:\\uni\\MA\\Packing\\Problems\\cgshop2024_benchmark\\instances\\random_cf1_x1869fdd_100.cgshop2024_instance.json",
         "D:\\uni\\MA\\Packing\\Problems\\cgshop2024_benchmark\\instances\\random_cf1_x665a736_100.cgshop2024_instance.json",
@@ -20,10 +21,12 @@ int main(int argc, char **argv)
         "D:\\uni\\MA\\Packing\\Problems\\cgshop2024_benchmark\\instances\\random_cf1_27383a82_5000.cgshop2024_instance.json",
         "D:\\uni\\MA\\Packing\\Problems\\cgshop2024_benchmark\\instances\\random_cf1_720892de_5000.cgshop2024_instance.json",
         "D:\\uni\\MA\\Packing\\Problems\\cgshop2024_benchmark\\instances\\random_cf1_327d5170_10000.cgshop2024_instance.json",
-        "D:\\uni\\MA\\Packing\\Problems\\cgshop2024_benchmark\\instances\\random_cf1_x5c10455_10000.cgshop2024_instance.json",
+        "D:\\uni\\MA\\Packing\\Problems\\cgshop2024_benchmark\\instances\\random_cf1_x5c10455_10000.cgshop2024_instance.json",*//*
         "D:\\uni\\MA\\Packing\\Problems\\cgshop2024_benchmark\\instances\\random_cf1_1943fa88_50000.cgshop2024_instance.json",
         "D:\\uni\\MA\\Packing\\Problems\\cgshop2024_benchmark\\instances\\random_cf1_x6c375be_50000.cgshop2024_instance.json",
-    };
+    };*/
+
+    char files[1][150] = { *argv[1] };
     
     for (auto file : files) {
         std::cout << file << "\n";

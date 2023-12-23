@@ -91,7 +91,7 @@ Problem::Problem(char *file_name)
 
 void Problem::storeSolution(std::string loc)
 {
-    std::string vis_name = loc + "/" + name + ".json";
+    std::string vis_name = loc + "/" + name + ".cgshop2024_solution.json";
     std::ofstream o(vis_name);
 
     json output;
@@ -245,7 +245,7 @@ void Problem::roundItems()
 {
     for (Item *item : items)
     {
-        Path it = item->poly;
+        /*Path it = item->poly;
 
         Path ext;
         ext.push_back(Point(-1, -1));
@@ -253,12 +253,17 @@ void Problem::roundItems()
         ext.push_back(Point(1, 1));
         ext.push_back(Point(-1, 1));
 
-        Path sum = Clipper2Lib::MinkowskiSum(it, ext, true)[0];
+        Path sum = Clipper2Lib::MinkowskiSum(it, ext, true)[0];*/
+
+        Clipper2Lib::ClipperOffset offsetter;
+        Paths result;
+        offsetter.AddPath(item->poly, Clipper2Lib::JoinType::Miter, Clipper2Lib::EndType::Polygon);
+        offsetter.Execute(6, result);
 
         // if (sum.is_clockwise_oriented()) {
         //     sum.reverse_orientation();
         // }
 
-        item->poly = sum;
+        item->poly = result[0];
     }
 }

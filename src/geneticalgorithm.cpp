@@ -1,4 +1,4 @@
-#include "geneticalgorithm.h"
+/*#include "geneticalgorithm.h"
 #include <random>
 
 SolveStatus GeneticAlgorithm::solve(Problem* prob)
@@ -195,4 +195,4 @@ void GeneticAlgorithm::run(size_t generations) {
 		eval();
 		std::cout << "Generation " << i << " done, best score: " << best->getScore() << std::endl;
 	}
-}
+}*/

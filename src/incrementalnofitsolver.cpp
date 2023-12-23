@@ -181,8 +181,38 @@ SolveStatus IncrementalNoFitSolver::solve(Problem* prob)
 void IncrementalNoFitSolver::initNoFits(size_t index) {
 	//Initialize no-fit polygon for each item as polygon around container with a hole for each free space
 
-	container = problem->getContainer();
+	Clipper2Lib::ClipperOffset offsetter;
+	Paths result;
+	offsetter.AddPath(problem->getContainer(), Clipper2Lib::JoinType::Miter, Clipper2Lib::EndType::Polygon);
+	offsetter.Execute(-100, result);
+	container = result[0];
+	Polygon CGALcontainer;
+	for (auto p : container) {
+		CGALcontainer.push_back({ (long)p.x, (long)p.y });
+	}
+
 	int wall = 10e6;
+
+	//build new polygon as outside of container
+
+	auto bottom = CGALcontainer.bottom_vertex();
+	auto top = CGALcontainer.top_vertex();
+
+	CGALcontainer.reverse_orientation();
+	auto containerStart = CGAL::Circulator_from_iterator(CGALcontainer.begin(), CGALcontainer.end(), CGALcontainer.top_vertex());
+	auto containerEnd = containerStart - 1;
+
+	auto dist = CGAL::squared_distance(*containerStart, *containerEnd);
+	containerEnd = CGAL::Circulator_from_iterator(CGALcontainer.begin(), CGALcontainer.end(), CGALcontainer.insert(containerStart.current_iterator(),
+		{ containerStart->x() + (containerEnd->x() - containerStart->x()) / dist, containerStart->y() + (containerEnd->y() - containerStart->y()) / dist }));
+	containerStart = containerEnd + 1;
+
+	auto it = CGALcontainer.insert(containerStart.current_iterator(), { containerStart->x(), containerStart->y() + wall });
+	it = CGALcontainer.insert(it, { CGALcontainer.right_vertex()->x() + wall, it->y() });
+	it = CGALcontainer.insert(it, { it->x(), CGALcontainer.bottom_vertex()->y() - wall });
+	it = CGALcontainer.insert(it, { CGALcontainer.left_vertex()->x() - wall, it->y() });
+	it = CGALcontainer.insert(it, { it->x(), CGALcontainer.top_vertex()->y() });
+
 	int c = 0;
 	items = problem->getItems();
 	size_t end = std::min(items.size(), index + batchSize);
@@ -196,13 +226,27 @@ void IncrementalNoFitSolver::initNoFits(size_t index) {
 			inverseCGAL.push_back({ (long)-p.x, (long)-p.y });
 		}
 
-		auto innerFit = Clipper2Lib::MinkowskiSum(container, inverseNext, true);
-		for (auto region : innerFit) {
+		//pathsToIPE("test.ipe", container, { inverseNext });
+		auto innerFitHoles = CGAL::minkowski_sum_2(CGALcontainer, inverseCGAL).holes();
+		Paths innerFit;
+
+		for (auto innerFitHole: innerFitHoles) {
+			innerFitHole.reverse_orientation();
+			Path hole;
+			for (auto p: innerFitHole)
+			{
+				hole.push_back({ p.x().interval().sup(), p.y().interval().sup() });
+			}
+			innerFit.push_back(hole);
+		}
+		//auto innerFit = Clipper2Lib::MinkowskiSum(container, inverseNext, true);
+		/*for (auto region : innerFit) {
 			if (Clipper2Lib::Area(region) < Clipper2Lib::Area(container)) {
 				innerFit = { region };
 				break;
 			}
-		}
+		}*/
+		//pathsToIPE("test.ipe", container, { {items[i]->poly }, innerFit });
 		
 		itemsWithNoFit.push_back(new ItemWithNoFit({ items[i], innerFit, inverseCGAL }));
 		++c;
