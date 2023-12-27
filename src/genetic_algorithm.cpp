@@ -106,7 +106,7 @@ SolveStatus GeneticAlgorithm::solve(Problem *prob) {
 
     std::cout << "Best fitness after initialization: " << this->population[this->population.size() - 1].get_fitness() << std::endl;
 
-    for (int g = 0; g < 10; g++) {
+    for (int g = 0; g < 100; g++) {
         for (int i = 0; i < m; i++) {
             this->tasks.push(CROSSOVER);
             sem_new_task.release();
