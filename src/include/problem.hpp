@@ -6,7 +6,7 @@
 #include <json.hpp>
 #include <iostream>
 #include "graphIPE.hpp"
-/*#include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
+#include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
 #include <CGAL/Exact_predicates_exact_constructions_kernel.h>
 #include <CGAL/Polygon_with_holes_2.h>
 #include <CGAL/Boolean_set_operations_2.h>
@@ -18,12 +18,13 @@
 #include <CGAL/convex_hull_2.h>
 #include <CGAL/convex_hull_traits_adapter_2.h>
 #include <CGAL/property_map.h>
-#include <CGAL/Small_side_angle_bisector_decomposition_2.h>*/
-#include <clipper2/clipper.h>
+#include <CGAL/Small_side_angle_bisector_decomposition_2.h>
+#include <CGAL/partition_2.h>
+#include <CGAL/Partition_traits_2.h>
 
 using json = nlohmann::json;
 
-/*//typedef double NT;
+//typedef double NT;
 typedef CGAL::Exact_predicates_exact_constructions_kernel K;
 //typedef CGAL::Cartesian<NT> K;
 typedef K::RT NT;
@@ -31,7 +32,7 @@ typedef CGAL::Polygon_with_holes_2<K> Polygon_with_holes;
 typedef CGAL::Polygon_2<K> Polygon;
 typedef Polygon::Vertex_iterator VertexIterator;
 typedef Polygon::Edge_const_iterator EdgeIterator;
-typedef K::Point_2 Point;
+typedef CGAL::Point_2<K> Point;
 typedef K::Line_2 Line;
 typedef K::Segment_2 Segment;
 typedef CGAL::Bbox_2 Bbox;
@@ -39,12 +40,9 @@ typedef CGAL::Iso_rectangle_2<K> Iso_rectangle;
 typedef Polygon::Vertex_circulator VertexCirculator;
 typedef CGAL::Aff_transformation_2<K> Transformation;
 typedef CGAL::Vector_2<K> Vector;
-typedef CGAL::Convex_hull_traits_adapter_2<K, CGAL::Pointer_property_map<Point>::type > Convex_hull_traits;*/
+typedef CGAL::Convex_hull_traits_adapter_2<K, CGAL::Pointer_property_map<Point>::type > Convex_hull_traits;
+typedef CGAL::Partition_traits_2<K, CGAL::Pointer_property_map<K::Point_2>::type > Partition_traits;
 
-typedef int64_t NT;
-typedef Clipper2Lib::Path64 Path;
-typedef Clipper2Lib::Paths64 Paths;
-typedef Clipper2Lib::Point64 Point;
 
 struct Edge
 {
@@ -55,8 +53,8 @@ struct Edge
 struct Item
 {
     int index;
-    Path poly;
-    std::vector<Paths> inners;
+    Polygon poly;
+    std::vector<Polygon> inners;
     int quantity;
     int value;
 
@@ -65,7 +63,7 @@ struct Item
 struct Candidate
 {
     int index;
-    Path poly;
+    Polygon poly;
     NT x_translation;
     NT y_translation;
 };
@@ -77,7 +75,7 @@ private:
     std::string type;
     std::vector<std::string> comments;
 
-    Path container;
+    Polygon container;
 
     std::vector<Candidate> candidates;
 
@@ -97,13 +95,13 @@ public:
     //     boundary_polgyon = poly;
     // };
 
-    Problem(char *file_name);
+    Problem(char* file_name);
 
-    Problem(Path cont, std::vector<Path> cands)
+    Problem(Polygon cont, std::vector<Polygon> cands)
     {
         container = cont;
         num_items = 0;
-        for (Path c : cands)
+        for (Polygon c : cands)
         {
             Item* it = new Item();
             it->poly = c;
@@ -122,7 +120,7 @@ public:
     // void addToPacking(Polygon c) { packing_polygons.push_back(c); };
 
     // void loadSolution();
-    void loadSolution(char *file_name);
+    void loadSolution(char* file_name);
 
     std::string getString() { return name; };
     int getNumItems() { return num_items; };
@@ -135,7 +133,7 @@ public:
 
     void addCandidate(Candidate cand, int value) { candidates.push_back(cand); score += value; };
 
-    Path getContainer() { return container; };
+    Polygon getContainer() { return container; };
     std::vector<Item*> getItems() { return items; };
     std::vector<Candidate> getCandidates() { return candidates; };
     void prettyPrint() { std::cout << " - Layed " << candidates.size() << " items with a total value of " << score << std::endl; };

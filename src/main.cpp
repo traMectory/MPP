@@ -30,8 +30,8 @@ int main(int argc, char **argv)
     
     for (auto file : files) {
         std::cout << file << "\n";
-        Problem* problem = new Problem(file);
-        problem->roundItems();
+        Problem* problem = new Problem(argv[1]);
+        //problem->roundItems();
 
 
         // Problem problem = Problem(argv[1]);
@@ -67,7 +67,7 @@ int main(int argc, char **argv)
 
         problem->prettyPrint();
 
-        problem->storeSolution(argv[2]);
+        //problem->storeSolution(argv[2]);
 
         if (visualize)
             problem->visualizeSolution();

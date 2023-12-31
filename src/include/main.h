@@ -9,5 +9,5 @@
 //#include "geneticalgorithm.h"
 #include "incrementalnofitsolver.h"
 
-bool visualize = false;
+bool visualize = true;
 int algorithm = 4;

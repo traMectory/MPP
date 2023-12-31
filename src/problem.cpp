@@ -40,7 +40,7 @@
 // //     return true;
 // // }
 
-Problem::Problem(char *file_name)
+Problem::Problem(char* file_name)
 {
     std::ifstream f(file_name);
 
@@ -76,7 +76,7 @@ Problem::Problem(char *file_name)
         auto x = item["x"];
         auto y = item["y"];
 
-        Path it;
+        Polygon it;
 
         for (int i = 0; i < x.size(); i++)
         {
@@ -84,14 +84,14 @@ Problem::Problem(char *file_name)
             it.push_back(t);
         }
 
-        items.push_back(new Item({ index, it, {}, item["quantity"], item["value"] }));
+        items.push_back(new Item(index, it, {}, item["quantity"], item["value"]));
         index++;
     }
 }
 
 void Problem::storeSolution(std::string loc)
 {
-    std::string vis_name = loc + "/" + name + ".cgshop2024_solution.json";
+    std::string vis_name = loc + "/" + name + ".json";
     std::ofstream o(vis_name);
 
     json output;
@@ -112,8 +112,8 @@ void Problem::storeSolution(std::string loc)
     for (Candidate item : candidates)
     {
         output["item_indices"].push_back(item.index);
-        output["x_translations"].push_back(item.x_translation);
-        output["y_translations"].push_back(item.y_translation);
+        output["x_translations"].push_back((int)CGAL::to_double(item.x_translation));
+        output["y_translations"].push_back((int)CGAL::to_double(item.y_translation));
         // output["x_translations"].push_back(item.x_translation.exact().numerator().doubleValue()/item.x_translation.exact().denominator().doubleValue());
         // output["y_translations"].push_back(item.y_translation.exact().numerator().doubleValue()/item.y_translation.exact().denominator().doubleValue());
     }
@@ -122,23 +122,20 @@ void Problem::storeSolution(std::string loc)
     o.close();
 }
 
-void toIPE(std::string path, Path boundary, std::vector<Candidate> polygons)
+void toIPE(std::string path, Polygon boundary, std::vector<Candidate> polygons)
 {
     std::ofstream o(path);
 
     // Find extreme coords of the graph (if you use CGAL you can use inbuild functions instead)
 
-    double xmin = std::numeric_limits<double>::max(),
-        xmax = std::numeric_limits<double>::min(),
-        ymin = std::numeric_limits<NT>::max(),
-        ymax = std::numeric_limits<double>::min();
-    for (Point p : boundary)
+    double xmin, xmax, ymin, ymax;
+    for (Point p : boundary.vertices())
     {
 
-        xmin = std::min(xmin, (double) p.x);
-        xmax = std::max(xmax, (double) p.x);
-        ymin = std::min(ymin, (double) p.y);
-        ymax = std::max(ymax, (double) p.y);
+        xmin = std::min(xmin, p.x().interval().pair().first);
+        xmax = std::max(xmax, p.x().interval().pair().first);
+        ymin = std::min(ymin, p.y().interval().pair().first);
+        ymax = std::max(ymax, p.y().interval().pair().first);
     }
     double scale = std::max(xmax - xmin, ymax - ymin);
 
@@ -197,9 +194,9 @@ void toIPE(std::string path, Path boundary, std::vector<Candidate> polygons)
 
     bool first = true;
 
-    for (Point v : boundary)
+    for (Point v : boundary.vertices())
     {
-        o << ((v.x - xmin) * 560 / scale + 16) << " " << (v.y * 560 / scale + 272) << " " << (first ? "m" : "l") << "\n";
+        o << ((v.x().interval().pair().first - xmin) * 560 / scale + 16) << " " << (v.y().interval().pair().first * 560 / scale + 272) << " " << (first ? "m" : "l") << "\n";
         first = false;
     }
     o << "h\n</path>\n";
@@ -210,9 +207,9 @@ void toIPE(std::string path, Path boundary, std::vector<Candidate> polygons)
 
         bool first = true;
 
-        for (Point v : poly.poly)
+        for (Point v : poly.poly.vertices())
         {
-            o << ((v.x - xmin) * 560 / scale + 16) << " " << (v.y * 560 / scale + 272) << " " << (first ? "m" : "l") << "\n";
+            o << ((v.x().interval().pair().first - xmin) * 560 / scale + 16) << " " << (v.y().interval().pair().first * 560 / scale + 272) << " " << (first ? "m" : "l") << "\n";
             first = false;
         }
         o << "h\n</path>\n";
@@ -235,6 +232,41 @@ void toIPE(std::string path, Path boundary, std::vector<Candidate> polygons)
 
 void Problem::visualizeSolution()
 {
+    std::vector<Edge> edges;
+    std::vector<Point> points;
+
+    for (auto edge : container.edges())
+    {
+        Point s = edge.start();
+        Point t = edge.target();
+
+        NT sx = s.x().interval().pair().first;
+        NT sy = s.y().interval().pair().first;
+        NT tx = t.x().interval().pair().first;
+        NT ty = t.y().interval().pair().first;
+
+        edges.push_back(Edge(Point(sx, sy), Point(tx, ty)));
+        points.push_back(Point(sx, sy));
+        points.push_back(Point(tx, ty));
+    }
+
+    for (Candidate candidate : candidates)
+    {
+        for (auto edge : candidate.poly.edges())
+        {
+            Point s = edge.start();
+            Point t = edge.target();
+
+            NT sx = s.x().interval().pair().first;
+            NT sy = s.y().interval().pair().first;
+            NT tx = t.x().interval().pair().first;
+            NT ty = t.y().interval().pair().first;
+
+            edges.push_back(Edge(Point(sx, sy), Point(tx, ty)));
+            points.push_back(Point(sx, sy));
+            points.push_back(Point(tx, ty));
+        }
+    }
 
     std::string path = name + ".ipe";
 
@@ -243,27 +275,22 @@ void Problem::visualizeSolution()
 
 void Problem::roundItems()
 {
-    for (Item *item : items)
+    for (Item* item : items)
     {
-        /*Path it = item->poly;
+        Polygon it = item->poly;
 
-        Path ext;
+        Polygon ext;
         ext.push_back(Point(-1, -1));
         ext.push_back(Point(1, -1));
         ext.push_back(Point(1, 1));
         ext.push_back(Point(-1, 1));
 
-        Path sum = Clipper2Lib::MinkowskiSum(it, ext, true)[0];*/
-
-        Clipper2Lib::ClipperOffset offsetter;
-        Paths result;
-        offsetter.AddPath(item->poly, Clipper2Lib::JoinType::Miter, Clipper2Lib::EndType::Polygon);
-        offsetter.Execute(6, result);
+        Polygon sum = CGAL::minkowski_sum_2(it, ext).outer_boundary();
 
         // if (sum.is_clockwise_oriented()) {
         //     sum.reverse_orientation();
         // }
 
-        item->poly = result[0];
+        item->poly = sum;
     }
 }

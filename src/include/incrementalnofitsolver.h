@@ -4,21 +4,22 @@
 #include <CGAL/minkowski_sum_2.h>
 #include "clipper2/clipper.h"
 
-typedef CGAL::Exact_predicates_exact_constructions_kernel K;
-typedef CGAL::Polygon_with_holes_2<K> Polygon_with_holes;
-typedef CGAL::Polygon_2<K> Polygon;
+typedef Clipper2Lib::Paths64 Paths;
+typedef Clipper2Lib::Path64 Path;
+typedef Clipper2Lib::Point64 Point64;
 
 struct ItemWithNoFit {
     Item* item;
     Paths innerFit;
-    Polygon inversePoly;
+    std::vector<Polygon> inversePoly;
+    std::vector<Polygon> convexDecomp;
 };
 
 class IncrementalNoFitSolver : public Solver
 {
 protected:
     Problem* problem;
-    Path container;
+    Polygon container;
     std::vector<Item*> items;
 
     bool containerEmpty = true;
@@ -35,33 +36,33 @@ protected:
     void initNoFits(size_t index);
 
     void additionalInits() {
-        NT xmin = std::numeric_limits<NT>::max(), ymin = std::numeric_limits<NT>::max();
+        NT xmin = std::numeric_limits<long>::max(), ymin = std::numeric_limits<long>::max();
         for (auto p: problem->getContainer())
         {
-            if (p.x < xmin)
-                xmin = p.x;
-            if (p.y < ymin)
-                ymin = p.y;
+            if (p.x() < xmin)
+                xmin = p.x();
+            if (p.y() < ymin)
+                ymin = p.y();
         }
         bottomLeft = Point(xmin, ymin);
     };
 
-    void updateNoFits(Path& addedPiece);
+    void updateNoFits(ItemWithNoFit* addedPiece, Point64& translation);
 
-    void additionalUpdates(Path& addedPiece) {};
+    void additionalUpdates(ItemWithNoFit* addedPiece, Point64& translation) {};
 
-    bool findBestItem(ItemWithNoFit* &bestItem, Path& placedPoly, Point& translation);
+    bool findBestItem(ItemWithNoFit* &bestItem, Point64& translation);
 
-    bool findBestPlacement(ItemWithNoFit* testedItem, Point& attachmentPoint);
+    bool findBestPlacement(ItemWithNoFit* testedItem, Point64& attachmentPoint);
 
-    int64_t evalPlacement(Path& placedPoly, Point& translation, int value);
+    int64_t evalPlacement(Polygon& placedPoly, Point64& translation, int value);
 
     bool evalIsBetter(int64_t first, int64_t second) {
         //returns true iff first position eval is better than second
         return first < second;
     };
 
-    void addNewPiece(Item* item, Path& placedPoly, Point& translation);
+    void addNewPiece(ItemWithNoFit* item, Point64& translation);
 public:
     IncrementalNoFitSolver() {};
 
