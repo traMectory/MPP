@@ -8,11 +8,22 @@ typedef Clipper2Lib::Paths64 Paths;
 typedef Clipper2Lib::Path64 Path;
 typedef Clipper2Lib::Point64 Point64;
 
+struct EdgeVector {
+    Point64 vec;
+    double slope;
+};
+
+struct ConvexEdgeList {
+    Point64 start;
+    std::vector<EdgeVector> rightEdges;
+    std::vector<EdgeVector> leftEdges;
+};
+
 struct ItemWithNoFit {
     Item* item;
     Paths innerFit;
-    std::vector<Polygon> inversePoly;
-    std::vector<Polygon> convexDecomp;
+    std::vector<ConvexEdgeList> convexDecomp;
+    std::vector<ConvexEdgeList> inversePoly;
 };
 
 class IncrementalNoFitSolver : public Solver
@@ -21,6 +32,7 @@ protected:
     Problem* problem;
     Polygon container;
     std::vector<Item*> items;
+    Path pathContainer;
 
     bool containerEmpty = true;
 
@@ -70,7 +82,7 @@ public:
 
     //static void getHullVacancies(const Polygon& poly, std::vector<Polygon>& vacancies);
 
-    size_t batchSize = 2090;
+    size_t batchSize = 10619;
 
     bool DEBUG = false;
 };
