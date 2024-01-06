@@ -1,5 +1,3 @@
-#pragma once
-
 #include "bottom_left.h"
 
 SolveStatus BottomLeft::solve(Problem *prob) {

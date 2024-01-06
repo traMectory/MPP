@@ -96,24 +96,30 @@ void GeneticAlgorithm::thread_pool_manager() {
 }
 
 SolveStatus GeneticAlgorithm::solve(Problem *prob) {
+    // Thread initialization
     threads.push_back(std::thread(&GeneticAlgorithm::thread_pool_manager, std::ref(*this)));
     for (int i = 0; i < this->n_threads; i++) {
         this->threads.push_back(std::thread(&GeneticAlgorithm::thread_task, std::ref(*this), i));
     }    
 
     this->prob = prob;
-    this->initialization();
 
+    // Initialization (Calculating fitness for initial individuals)
+    this->initialization();
     std::cout << "Best fitness after initialization: " << this->population[this->population.size() - 1].get_fitness() << std::endl;
 
+    // Generate g new generation
     for (int g = 0; g < 100; g++) {
+        // Send crossover tasks to thread pool
         for (int i = 0; i < m; i++) {
             this->tasks.push(CROSSOVER);
             sem_new_task.release();
         }
 
+        // Wait for all crossover tasks to be done
         this->sem_done.acquire();
 
+        // Update population
         for (int i = 0; i < this->generation.size(); i++) {
             if (this->generation[i].get_fitness() > this->population[0].get_fitness()) {
                 Individual descendant = this->generation[i];
@@ -128,11 +134,19 @@ SolveStatus GeneticAlgorithm::solve(Problem *prob) {
                 this->population.erase(this->population.begin());
             }
         }
+        for (int i = 0; i < this->population[this->population.size() - 1].get_candidates().size(); i++) {
+            prob->addCandidate(this->population[this->population.size() - 1].get_candidates()[i], this->population[this->population.size() - 1].get_permutation()[i]->value);
+        }
+        std::stringstream s;
+        s << "temp_" << g << ".out";
+        prob->storeSolution(s.str());
+        prob->getCandidates().clear();
 
         std::cout << "["  << g << "]: " << this->population[this->population.size() - 1].get_fitness() << std::endl;
         this->generation.clear();
     }
 
+    // Send tasks to thread pool for quitting
     for (int i = 0; i < this->n_threads; i++) {
         tasks.push(QUIT);
         sem_new_task.release();
@@ -220,7 +234,7 @@ void GeneticAlgorithm::crossover(Individual *ind_i, Individual *ind_j, int index
         if (i >= p && i < p + q) {
             continue;
         }
-        if (!std::ranges::contains(perm_desc, ind_j->get_permutation()[i])) {
+        if (std::find(perm_desc.begin(), perm_desc.end(), ind_j->get_permutation()[i]) == perm_desc.end()) {
             perm_desc.push_back(ind_j->get_permutation()[i]);
         }
     }
