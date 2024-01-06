@@ -1,12 +1,18 @@
 #pragma once
 #include "solver.h"
 #include "problem.hpp"
-#include <CGAL/minkowski_sum_2.h>
 #include "clipper2/clipper.h"
 
 typedef Clipper2Lib::Paths64 Paths;
 typedef Clipper2Lib::Path64 Path;
 typedef Clipper2Lib::Point64 Point64;
+
+static void intersectZCallback(const Point64& e1bot, const Point64& e1top,
+    const Point64& e2bot, const Point64& e2top, Point64& pt)
+{
+    //std::cout << pt << " -- ";
+    pt.z = 1;
+}
 
 struct EdgeVector {
     Point64 vec;
@@ -22,6 +28,7 @@ struct ConvexEdgeList {
 struct ItemWithNoFit {
     Item* item;
     Paths innerFit;
+    Path rightEdge;
     std::vector<ConvexEdgeList> convexDecomp;
     std::vector<ConvexEdgeList> inversePoly;
 };
@@ -43,8 +50,6 @@ protected:
 
     Point bottomLeft;
 
-    void precomputeNoFits(Item* item, Path& inversePoly, std::map<int, Paths>& result);
-
     void initNoFits(size_t index);
 
     void additionalInits() {
@@ -61,7 +66,7 @@ protected:
 
     void updateNoFits(ItemWithNoFit* addedPiece, Point64& translation);
 
-    void additionalUpdates(ItemWithNoFit* addedPiece, Point64& translation) {};
+    void additionalUpdates(ItemWithNoFit* addedPiece, Point64& translation);
 
     bool findBestItem(ItemWithNoFit* &bestItem, Point64& translation);
 
@@ -75,6 +80,9 @@ protected:
     };
 
     void addNewPiece(ItemWithNoFit* item, Point64& translation);
+
+    void subtract(Paths& innerFit, Paths& noFit);
+
 public:
     IncrementalNoFitSolver() {};
 
