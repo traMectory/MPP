@@ -145,8 +145,8 @@ void Problem::storeSolution(std::string loc, int g)
     for (Candidate item : candidates)
     {
         output["item_indices"].push_back(item.index);
-        output["x_translations"].push_back((int)item.x_translation);
-        output["y_translations"].push_back((int)item.y_translation);
+        output["x_translations"].push_back((int)CGAL::to_double(item.x_translation));
+        output["y_translations"].push_back((int)CGAL::to_double(item.y_translation));
         // output["x_translations"].push_back(item.x_translation.exact().numerator().doubleValue()/item.x_translation.exact().denominator().doubleValue());
         // output["y_translations"].push_back(item.y_translation.exact().numerator().doubleValue()/item.y_translation.exact().denominator().doubleValue());
     }
