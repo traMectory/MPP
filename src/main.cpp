@@ -3,13 +3,13 @@
 #define tms std::chrono::high_resolution_clock::now()
 #define dif(a, b) std::chrono::duration_cast<std::chrono::milliseconds>(a - b)
 
-int main(int argc, char **argv)
+int main(int argc, char** argv)
 {
     parseOptions(argc, argv);
 
-    Problem problem = Problem(argv[1]);
+    Problem* problem = new Problem(argv[1]);
 
-    problem.roundItems();
+    problem->roundItems();
 
     /*Polygon p = Polygon();
     p.push_back(Point(0, 0));
@@ -33,12 +33,17 @@ int main(int argc, char **argv)
     if (algorithm == 0)
     {
         Msum solver = Msum();
-        solver.solve(&problem);
+        solver.solve(problem);
     }
     else if (algorithm == 1)
     {
         LeftLayerOne solver = LeftLayerOne();
-        solver.solve(&problem);
+        solver.solve(problem);
+    }
+    else if (algorithm == 3)
+    {
+        IncrementalNoFitSolver solver = IncrementalNoFitSolver();
+        solver.solve(problem);
     }
     else if (algorithm == 2)
     {
@@ -58,21 +63,15 @@ int main(int argc, char **argv)
     }
     
     auto time = dif(tms, start);
-    problem.addComment("Time: " + std::to_string(time.count()) + "ms");
-    problem.addComment("Score: " + std::to_string(problem.getScore()));
-    auto init_time_int = duration_cast<std::chrono::milliseconds>(time);
+    problem->addComment("Time: " + std::to_string(time.count()) + "ms");
+    problem->addComment("Score: " + std::to_string(problem->getScore()));
 
-    problem.setTime(init_time_int.count());
+    problem->prettyPrint();
 
-    std::cout << "    took " << init_time_int.count() << "ms\n";
-    
-
-    problem.prettyPrint();
-
-    problem.storeSolution(argv[2]);
+    problem->storeSolution(argv[2]);
 
     if (visualize)
-        problem.visualizeSolution();
+        problem->visualizeSolution();
 
     // Problem problem2 = Problem(argv[1]);
 
