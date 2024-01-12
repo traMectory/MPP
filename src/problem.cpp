@@ -122,6 +122,39 @@ void Problem::storeSolution(std::string loc)
     o.close();
 }
 
+void Problem::storeSolution(std::string loc, int g)
+{
+    std::string vis_name = loc;
+    std::ofstream o(vis_name);
+
+    json output;
+
+    output["type"] = "cgshop2024_solution";
+
+    output["instance_name"] = name;
+    output["item_indices"] = {};
+    output["x_translations"] = {};
+    output["y_translations"] = {};
+    output["comments"] = {};
+
+    for (std::string comment : comments)
+    {
+        output["comments"].push_back(comment);
+    }
+
+    for (Candidate item : candidates)
+    {
+        output["item_indices"].push_back(item.index);
+        output["x_translations"].push_back((int)item.x_translation);
+        output["y_translations"].push_back((int)item.y_translation);
+        // output["x_translations"].push_back(item.x_translation.exact().numerator().doubleValue()/item.x_translation.exact().denominator().doubleValue());
+        // output["y_translations"].push_back(item.y_translation.exact().numerator().doubleValue()/item.y_translation.exact().denominator().doubleValue());
+    }
+
+    o << std::setw(4) << output << std::endl;
+    o.close();
+}
+
 void toIPE(std::string path, Polygon boundary, std::vector<Candidate> polygons)
 {
     std::ofstream o(path);

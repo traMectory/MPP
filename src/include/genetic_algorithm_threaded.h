@@ -1,5 +1,5 @@
-#ifndef GENETIC_ALGORITHM_H
-#define GENETIC_ALGORITHM_H
+#ifndef GENETIC_ALGORITHM_THREADED_H
+#define GENETIC_ALGORITHM_THREADED_H
 
 #include <vector>
 #include <functional>
@@ -12,24 +12,9 @@
 #include "problem.hpp"
 #include "solver.h"
 #include "bottom_left.h"
+#include "genetic_algorithm_common.h"
 
-class Individual {
-private:
-    std::vector<Item*> permutation;
-    long long fitness;
-    std::vector<Candidate> candidates;
-
-public:
-    Individual(std::vector<Item*> permutation);
-    ~Individual();
-    std::vector<Item*> get_permutation();
-    void set_fitness(long long fitness);
-    long long get_fitness();
-    std::vector<Candidate> get_candidates();
-    void set_candidates(std::vector<Candidate> candidates);
-};
-
-class GeneticAlgorithm : public Solver {
+class GeneticAlgorithmThreaded : public Solver {
 private:
     static constexpr int INITIALIZE_INDIVIDUAL = 0;
     static constexpr int QUIT = 1;
@@ -67,8 +52,8 @@ private:
     void co(int i);
 
 public:
-    GeneticAlgorithm();
-    ~GeneticAlgorithm();
+    GeneticAlgorithmThreaded();
+    ~GeneticAlgorithmThreaded();
     SolveStatus solve(Problem *prob);
 };
 

@@ -48,15 +48,24 @@ int main(int argc, char **argv)
     {
         BottomLeft solver = BottomLeft();
         solver.solve(&problem);
-    } else if (algorithm == 4)
+    } else if (algorithm == 4) {
+        GeneticAlgorithmSimple solver = GeneticAlgorithmSimple();
+        solver.solve(&problem);
+    } else if (algorithm == 5)
     {
-        GeneticAlgorithm solver = GeneticAlgorithm();
+        GeneticAlgorithmThreaded solver = GeneticAlgorithmThreaded();
         solver.solve(&problem);
     }
     
     auto time = dif(tms, start);
     problem.addComment("Time: " + std::to_string(time.count()) + "ms");
     problem.addComment("Score: " + std::to_string(problem.getScore()));
+    auto init_time_int = duration_cast<std::chrono::milliseconds>(time);
+
+    problem.setTime(init_time_int.count());
+
+    std::cout << "    took " << init_time_int.count() << "ms\n";
+    
 
     problem.prettyPrint();
 

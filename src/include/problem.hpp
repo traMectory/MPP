@@ -136,6 +136,7 @@ public:
     void roundItems();
 
     void storeSolution(std::string loc);
+    void storeSolution(std::string loc, int g);
 
     void output();
 };

@@ -1,6 +1,7 @@
-#include "genetic_algorithm.h"
+#include "genetic_algorithm_common.h"
+#include "genetic_algorithm_threaded.h"
 
-GeneticAlgorithm::GeneticAlgorithm() {
+GeneticAlgorithmThreaded::GeneticAlgorithmThreaded() {
     this->population = std::vector<Individual>();
     this->generation = std::vector<Individual>();
     this->candidates = std::vector<std::vector<Candidate>>(this->m);
@@ -14,10 +15,10 @@ GeneticAlgorithm::GeneticAlgorithm() {
     this->tasks = std::queue<int>();
 }
 
-GeneticAlgorithm::~GeneticAlgorithm() {
+GeneticAlgorithmThreaded::~GeneticAlgorithmThreaded() {
 }
 
-void GeneticAlgorithm::thread_task(int i) {
+void GeneticAlgorithmThreaded::thread_task(int i) {
     while (!done) {
         this->sem_tasks.acquire();
         this->mut_thread_counter.lock();
@@ -61,13 +62,13 @@ void GeneticAlgorithm::thread_task(int i) {
     }
 }
 
-void GeneticAlgorithm::co(int i) {
+void GeneticAlgorithmThreaded::co(int i) {
     Individual *ind_i, *ind_j = nullptr;
     this->proportional_selection(&ind_i, &ind_j);
     this->crossover(ind_i, ind_j, i);
 }
 
-void GeneticAlgorithm::initialize_individual() {
+void GeneticAlgorithmThreaded::initialize_individual() {
     std::random_device rd;
     std::mt19937 g(rd());
     std::vector<Item*> items;
@@ -87,7 +88,7 @@ void GeneticAlgorithm::initialize_individual() {
     this->mut_population.unlock();
 }
 
-void GeneticAlgorithm::thread_pool_manager() {
+void GeneticAlgorithmThreaded::thread_pool_manager() {
     while (!done) {
         this->sem_new_task.acquire();
         this->sem_threads.acquire();
@@ -95,11 +96,11 @@ void GeneticAlgorithm::thread_pool_manager() {
     }
 }
 
-SolveStatus GeneticAlgorithm::solve(Problem *prob) {
+SolveStatus GeneticAlgorithmThreaded::solve(Problem *prob) {
     // Thread initialization
-    threads.push_back(std::thread(&GeneticAlgorithm::thread_pool_manager, std::ref(*this)));
+    threads.push_back(std::thread(&GeneticAlgorithmThreaded::thread_pool_manager, std::ref(*this)));
     for (int i = 0; i < this->n_threads; i++) {
-        this->threads.push_back(std::thread(&GeneticAlgorithm::thread_task, std::ref(*this), i));
+        this->threads.push_back(std::thread(&GeneticAlgorithmThreaded::thread_task, std::ref(*this), i));
     }    
 
     this->prob = prob;
@@ -109,7 +110,7 @@ SolveStatus GeneticAlgorithm::solve(Problem *prob) {
     std::cout << "Best fitness after initialization: " << this->population[this->population.size() - 1].get_fitness() << std::endl;
 
     // Generate g new generation
-    for (int g = 0; g < 100; g++) {
+    for (int g = 0; g < 1000; g++) {
         // Send crossover tasks to thread pool
         for (int i = 0; i < m; i++) {
             this->tasks.push(CROSSOVER);
@@ -138,9 +139,10 @@ SolveStatus GeneticAlgorithm::solve(Problem *prob) {
             prob->addCandidate(this->population[this->population.size() - 1].get_candidates()[i], this->population[this->population.size() - 1].get_permutation()[i]->value);
         }
         std::stringstream s;
-        s << "temp_" << g << ".out";
-        prob->storeSolution(s.str());
-        prob->getCandidates().clear();
+        s << prob->getString() << "_temp_" << g << ".json";
+        prob->storeSolution(s.str(), 0);
+        prob->clearCandidates();
+        prob->setScore(0);
 
         std::cout << "["  << g << "]: " << this->population[this->population.size() - 1].get_fitness() << std::endl;
         this->generation.clear();
@@ -165,7 +167,7 @@ SolveStatus GeneticAlgorithm::solve(Problem *prob) {
     return SolveStatus::Feasible;
 }
 
-void GeneticAlgorithm::initialization() {
+void GeneticAlgorithmThreaded::initialization() {
     for (int i = 0; i < this->m; i++) {
         this->tasks.push(INITIALIZE_INDIVIDUAL);
         this->sem_new_task.release();
@@ -179,7 +181,7 @@ void GeneticAlgorithm::initialization() {
         });    
 }
 
-void GeneticAlgorithm::proportional_selection(Individual **ind_i, Individual **ind_j) {
+void GeneticAlgorithmThreaded::proportional_selection(Individual **ind_i, Individual **ind_j) {
     std::vector<double> probabilities;
 
     long long sum = 
@@ -217,7 +219,7 @@ void GeneticAlgorithm::proportional_selection(Individual **ind_i, Individual **i
     } 
 }
 
-void GeneticAlgorithm::crossover(Individual *ind_i, Individual *ind_j, int index) {
+void GeneticAlgorithmThreaded::crossover(Individual *ind_i, Individual *ind_j, int index) {
     std::random_device dev;
     std::mt19937 rng(dev());
     std::uniform_int_distribution<std::mt19937::result_type> dist(0, ind_i->get_permutation().size());
@@ -251,34 +253,4 @@ void GeneticAlgorithm::crossover(Individual *ind_i, Individual *ind_j, int index
     this->mut_generation.lock();
     this->generation.push_back(individual);
     this->mut_generation.unlock();
-}
-
-Individual::Individual(std::vector<Item*> permutation) {
-    this->permutation = permutation;
-    this->fitness = 0;
-    this->candidates = std::vector<Candidate>();
-}
-
-Individual::~Individual()
-{
-}
-
-std::vector<Item*> Individual::get_permutation() {
-    return this->permutation;
-}
-
-void Individual::set_fitness(long long fitness) {
-    this->fitness = fitness;
-}
-
-long long Individual::get_fitness() {
-    return this->fitness;
-}
-
-std::vector<Candidate> Individual::get_candidates() {
-    return this->candidates;
-}
-
-void Individual::set_candidates(std::vector<Candidate> candidates) {
-    this->candidates = candidates;
 }
