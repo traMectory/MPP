@@ -6,7 +6,6 @@
 #include "msum.h"
 #include "leftlayerone.h"
 #include "miscellaneous.h"
-#include "geneticalgorithm.h"
 #include "incrementalnofitsolver.h"
 #include "metaheuristic1.h"
 #include "bottom_left.h"

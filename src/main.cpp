@@ -39,27 +39,30 @@ int main(int argc, char** argv)
     {
         LeftLayerOne solver = LeftLayerOne();
         solver.solve(problem);
-    }
+    } else if (algorithm == 2)
+    {
+        Metaheuristic solver = Metaheuristic();
+        solver.solve(problem);
+    } 
     else if (algorithm == 3)
     {
         IncrementalNoFitSolver solver = IncrementalNoFitSolver();
         solver.solve(problem);
     }
-    else if (algorithm == 2)
-    {
-        Metaheuristic solver = Metaheuristic();
-        solver.solve(&problem);
-    } else if (algorithm == 3)
+    else if (algorithm == 4)
     {
         BottomLeft solver = BottomLeft();
-        solver.solve(&problem);
-    } else if (algorithm == 4) {
+        solver.solve(problem);
+    }
+    else if (algorithm == 5)
+    {
         GeneticAlgorithmSimple solver = GeneticAlgorithmSimple();
-        solver.solve(&problem);
-    } else if (algorithm == 5)
+        solver.solve(problem);
+    } 
+    else if (algorithm == 6)
     {
         GeneticAlgorithmThreaded solver = GeneticAlgorithmThreaded();
-        solver.solve(&problem);
+        solver.solve(problem);
     }
     
     auto time = dif(tms, start);
