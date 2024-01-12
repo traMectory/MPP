@@ -1,6 +1,6 @@
 #pragma once
 
-/*#include "solver.h"
+#include "solver.h"
 #include "problem.hpp"
 
 class GeneticAlgorithm : Solver
@@ -30,4 +30,4 @@ private:
     void resetItems();
     Problem* best;
     std::vector<Item*> flatItems;
-};*/
+};

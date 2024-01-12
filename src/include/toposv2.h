@@ -1,5 +1,5 @@
 #pragma once
-/*#include "solver.h"
+#include "solver.h"
 #include "problem.hpp"
 #include <CGAL/minkowski_sum_2.h>
 
@@ -27,5 +27,5 @@ public:
     joinMode joinMode = EXACT;
     bool DEBUG = false;
     bool VERBOSE = false;
-};*/
+};
 

@@ -1,5 +1,5 @@
 #pragma once
-/*#include "solver.h"
+#include "solver.h"
 #include "problem.hpp"
 #include <CGAL/minkowski_sum_2.h>
 #include <CGAL/draw_polygon_2.h>
@@ -18,5 +18,5 @@ public:
     SolveStatus solve(Problem* prob);
 
     placementPolicy placementPolicy = OVERLAP;
-};*/
+};
 

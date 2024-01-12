@@ -1,4 +1,4 @@
-/*#include "toposv2.h"
+#include "toposv2.h"
 
 void toIPE2(std::string path, Polygon boundary, std::vector<Polygon> polygons, std::vector<Point> points)
 {
@@ -755,4 +755,4 @@ SolveStatus Toposv2::solve(Problem* prob)
 
     }
     return SolveStatus::Feasible;
-}*/
+}

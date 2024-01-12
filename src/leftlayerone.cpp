@@ -1,4 +1,4 @@
-/*#include "leftlayerone.h"
+#include "leftlayerone.h"
 
 bool compareItemsArea(Item *i1, Item *i2)
 {
@@ -313,4 +313,4 @@ SolveStatus LeftLayerOne::solve(Problem *prob)
     // std::cout << 
 
     return SolveStatus::Feasible;
-}*/
+}

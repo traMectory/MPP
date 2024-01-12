@@ -1,4 +1,4 @@
-/*#include "msum.h"
+#include "msum.h"
 
 // Sort function based on area
 bool compareItemsC(Item *i1, Item *i2)
@@ -8,7 +8,7 @@ bool compareItemsC(Item *i1, Item *i2)
 
 /*
  * This function uses the Minkowski Sum to calculate if and where we can place an item, if a placement exists we simply put it as far left as possible.
- *//*
+ */
 SolveStatus Msum::solve(Problem *prob)
 {
     prob->addComment("Algorithm: msum");
@@ -167,4 +167,4 @@ SolveStatus Msum::solve(Problem *prob)
     }
 
     return SolveStatus::Feasible;
-}*/
+}
