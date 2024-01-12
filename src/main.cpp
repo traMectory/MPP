@@ -28,9 +28,8 @@ int main(int argc, char** argv)
     }
     else if (algorithm == 3)
     {
-        Toposv2 solver = Toposv2();
-        GeneticAlgorithm ga = GeneticAlgorithm(&solver);
-        ga.solve(problem);
+        IncrementalNoFitSolver solver = IncrementalNoFitSolver();
+        solver.solve(problem);
     }
 
 
