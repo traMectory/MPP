@@ -7,12 +7,18 @@ typedef Clipper2Lib::Paths64 Paths;
 typedef Clipper2Lib::Path64 Path;
 typedef Clipper2Lib::Point64 Point64;
 
-static void intersectZCallback(const Point64& e1bot, const Point64& e1top,
+/*static void intersectZCallback(const Point64& e1bot, const Point64& e1top,
     const Point64& e2bot, const Point64& e2top, Point64& pt)
 {
     //std::cout << pt << " -- ";
     pt.z = 1;
-}
+}*/
+
+enum ComparisonResult {
+    BETTER,
+    WORSE,
+    EQUAL
+};
 
 struct EdgeVector {
     Point64 vec;
@@ -40,8 +46,6 @@ protected:
     Polygon container;
     std::vector<Item*> items;
     Path pathContainer;
-
-    bool containerEmpty = true;
 
 
     Paths placedPieces;
@@ -72,16 +76,28 @@ protected:
 
     bool findBestPlacement(ItemWithNoFit* testedItem, Point64& attachmentPoint);
 
-    int64_t evalPlacement(Polygon& placedPoly, Point64& translation, int value);
+    int64_t evalPlacement(ItemWithNoFit* item, Point64& translation);
 
-    bool evalIsBetter(int64_t first, int64_t second) {
+    bool tieBreak(ItemWithNoFit* first, ItemWithNoFit* second) {
+        if (first->item->value > second->item->value)
+            return true;
+        else
+            return false;
+    };
+
+    ComparisonResult compareEval(int64_t first, int64_t second) {
         //returns true iff first position eval is better than second
-        return first < second;
+        if (first < second)
+            return ComparisonResult::BETTER;
+        if (first > second)
+            return ComparisonResult::WORSE;
+        else
+            return ComparisonResult::EQUAL;
+
     };
 
     void addNewPiece(ItemWithNoFit* item, Point64& translation);
 
-    void subtract(Paths& innerFit, Paths& noFit);
 
 public:
     IncrementalNoFitSolver() {};
@@ -90,8 +106,13 @@ public:
 
     //static void getHullVacancies(const Polygon& poly, std::vector<Polygon>& vacancies);
 
-    size_t batchSize = 10619;
+    bool bestFit = false;
+
+    size_t batchSize = 999999;
+
+    int64_t scaleFactor = 100000;
 
     bool DEBUG = false;
+    bool VERBOSE = true;
 };
 
