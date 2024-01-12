@@ -14,6 +14,14 @@ typedef Clipper2Lib::Point64 Point64;
     pt.z = 1;
 }*/
 
+enum PlacementStrategy {
+    BOTTOM_LEFT,
+    BOTTOM_RIGHT,
+    TOP_LEFT,
+    TOP_RIGHT,
+    MIN_DIST
+};
+
 enum ComparisonResult {
     BETTER,
     WORSE,
@@ -111,6 +119,8 @@ public:
     size_t batchSize = 999999;
 
     int64_t scaleFactor = 100000;
+
+    PlacementStrategy placementMode = MIN_DIST;
 
     bool DEBUG = false;
     bool VERBOSE = true;
