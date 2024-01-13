@@ -527,15 +527,40 @@ bool IncrementalNoFitSolver::findBestPlacement(ItemWithNoFit* testedItem, Point6
 
 	bool positionFound = false;
 	attachmentPoint = Point64(std::numeric_limits<int64_t>::max(), std::numeric_limits<int64_t>::max());
-	int64_t minDist = std::numeric_limits<int64_t>::max();
-	for (auto& area : testedItem->innerFit) {
-		for (auto& p : area) {
-			if (approxDistance(p.x, p.y) < minDist){//(p.y < attachmentPoint.y || (p.y == attachmentPoint.y && p.x < attachmentPoint.x)) {
-				attachmentPoint = p;
-				minDist = approxDistance(p.x, p.y);
-				positionFound = true;
+
+	switch (placementMode)
+	{
+	case BOTTOM_LEFT:
+		for (auto& area : testedItem->innerFit) {
+			for (auto& p : area) {
+				if (p.y < attachmentPoint.y || (p.y == attachmentPoint.y && p.x < attachmentPoint.x)) {
+					attachmentPoint = p;
+					positionFound = true;
+				}
 			}
 		}
+		break;
+	case BOTTOM_RIGHT:
+		break;
+	case TOP_LEFT:
+		break;
+	case TOP_RIGHT:
+		break;
+	case MIN_DIST: {
+		int64_t minDist = std::numeric_limits<int64_t>::max();
+		for (auto& area : testedItem->innerFit) {
+			for (auto& p : area) {
+				if (approxDistance(p.x, p.y) < minDist) {//(p.y < attachmentPoint.y || (p.y == attachmentPoint.y && p.x < attachmentPoint.x)) {
+					attachmentPoint = p;
+					minDist = approxDistance(p.x, p.y);
+					positionFound = true;
+				}
+			}
+		}
+		break;
+	}
+	default:
+		break;
 	}
 
 	return positionFound;
