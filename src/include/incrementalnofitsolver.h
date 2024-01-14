@@ -7,12 +7,62 @@ typedef Clipper2Lib::Paths64 Paths;
 typedef Clipper2Lib::Path64 Path;
 typedef Clipper2Lib::Point64 Point64;
 
-/*static void intersectZCallback(const Point64& e1bot, const Point64& e1top,
+static void intersectZCallback(const Point64& e1bot, const Point64& e1top,
     const Point64& e2bot, const Point64& e2top, Point64& pt)
 {
-    //std::cout << pt << " -- ";
+    const Point64 *first, *second;
     pt.z = 1;
-}*/
+    if (e1bot.z == 1 || e1top.z == 1) {
+        if (&e1top == (&e1bot + 1)) {
+            first = &e1bot;
+            second = &e1top;
+        }
+        else if (&e1bot == (&e1top + 1)) {
+            first = &e1top;
+            second = &e1bot;
+        }
+        else if (&e1top < &e1bot) {
+            first = &e1bot;
+            second = &e1top;
+        }
+        else
+        {
+            first = &e1top;
+            second = &e1bot;
+        }
+    }
+    else if (e2bot.z == 1 || e2top.z == 1) {
+        if (&e1top == (&e1bot + 1)) {
+            first = &e1bot;
+            second = &e1top;
+        }
+        else if (&e1bot == (&e1top + 1)) {
+            first = &e1top;
+            second = &e1bot;
+        }
+        else if (&e1top < &e1bot) {
+            first = &e1bot;
+            second = &e1top;
+        }
+        else
+        {
+            first = &e1top;
+            second = &e1bot;
+        }
+    }
+    else {
+        return;
+    }
+    if (first->y < second->y) {
+        pt.x -= 1;
+    }
+    else if (first->y > second->y) {
+        pt.x += 1;
+    }
+    else {
+        pt.y = first->y;
+    }
+}
 
 enum PlacementStrategy {
     BOTTOM_LEFT,
@@ -114,11 +164,11 @@ public:
 
     //static void getHullVacancies(const Polygon& poly, std::vector<Polygon>& vacancies);
 
-    bool bestFit = false;
+    bool bestFit = true;
 
     size_t batchSize = 999999;
 
-    int64_t scaleFactor = 100000;
+    int64_t scaleFactor = 1000000;
 
     PlacementStrategy placementMode = MIN_DIST;
 

@@ -365,7 +365,7 @@ void IncrementalNoFitSolver::initNoFits(size_t index) {
 			Path hole;
 			for (auto p: innerFitHole)
 			{
-				hole.push_back({ p.x().interval().sup() * scaleFactor, p.y().interval().sup() * scaleFactor });
+				hole.push_back({ p.x().interval().sup() * scaleFactor, p.y().interval().sup() * scaleFactor, 1 });
 			}
 			innerFit.push_back(Clipper2Lib::TrimCollinear(hole));
 		}
@@ -461,7 +461,7 @@ void IncrementalNoFitSolver::updateNoFits(ItemWithNoFit* addedPiece, Point64& tr
 		c.AddClip(noFitParts);
 		Paths result;
 		
-		//c.SetZCallback(intersectZCallback);
+		c.SetZCallback(intersectZCallback);
 
 		c.Execute(Clipper2Lib::ClipType::Difference, Clipper2Lib::FillRule::NonZero, result);
 		
