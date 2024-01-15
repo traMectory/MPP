@@ -2,6 +2,7 @@
 #include "solver.h"
 #include "problem.hpp"
 #include "clipper2/clipper.h"
+#include <execution>
 
 typedef Clipper2Lib::Paths64 Paths;
 typedef Clipper2Lib::Path64 Path;
@@ -55,24 +56,37 @@ static void intersectZCallback(const Point64& e1bot, const Point64& e1top,
     }
     if (first->y < second->y) {
         pt.x -= 1;
+        if (first->x < second->x) {
+            pt.y += 1;
+        }
+        else if (first->x > second->x) {
+            pt.y -= 1;
+        }
     }
     else if (first->y > second->y) {
         pt.x += 1;
+        if (first->x < second->y) {
+            pt.y += 1;
+        }
+        else if (first->x > second->x) {
+            pt.y -= 1;
+        }
     }
     else {
         pt.y = first->y;
     }
 }
 
-enum PlacementStrategy {
+enum class PlacementStrategy {
     BOTTOM_LEFT,
     BOTTOM_RIGHT,
     TOP_LEFT,
     TOP_RIGHT,
-    MIN_DIST
+    MIN_DIST,
+    CONCAVE_FIT
 };
 
-enum ComparisonResult {
+enum class ComparisonResult {
     BETTER,
     WORSE,
     EQUAL
@@ -81,6 +95,11 @@ enum ComparisonResult {
 struct EdgeVector {
     Point64 vec;
     double slope;
+    EdgeVector(Point64 v){
+        vec = v;
+        slope = v.x == 0 ? std::numeric_limits<double>::max() : ((double)v.y) / ((double)v.x);
+    }
+    EdgeVector() {};
 };
 
 struct ConvexEdgeList {
@@ -136,12 +155,7 @@ protected:
 
     int64_t evalPlacement(ItemWithNoFit* item, Point64& translation);
 
-    bool tieBreak(ItemWithNoFit* first, ItemWithNoFit* second) {
-        if (first->item->value > second->item->value)
-            return true;
-        else
-            return false;
-    };
+    bool tieBreak(ItemWithNoFit* first, ItemWithNoFit* second);
 
     ComparisonResult compareEval(int64_t first, int64_t second) {
         //returns true iff first position eval is better than second
@@ -170,7 +184,8 @@ public:
 
     int64_t scaleFactor = 1000000;
 
-    PlacementStrategy placementMode = MIN_DIST;
+    PlacementStrategy placementMode = PlacementStrategy::MIN_DIST;
+   
 
     bool DEBUG = false;
     bool VERBOSE = true;
