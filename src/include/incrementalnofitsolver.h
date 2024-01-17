@@ -116,13 +116,13 @@ public:
 
     bool bestFit = false;
 
-    size_t batchSize = 999999;
+    size_t batchSize = 99;
 
-    int64_t scaleFactor = 100000;
+    int64_t scaleFactor = 1000;
 
     PlacementStrategy placementMode = MIN_DIST;
 
     bool DEBUG = false;
-    bool VERBOSE = true;
+    bool VERBOSE = false;
 };
 

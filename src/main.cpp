@@ -64,6 +64,11 @@ int main(int argc, char** argv)
         GeneticAlgorithmThreaded solver = GeneticAlgorithmThreaded();
         solver.solve(problem);
     }
+    else if (algorithm == 7)
+    {
+        GeneticAlgorithmThreadedIncremental solver = GeneticAlgorithmThreadedIncremental();
+        solver.solve(problem);
+    }
     
     auto time = dif(tms, start);
     problem->addComment("Time: " + std::to_string(time.count()) + "ms");

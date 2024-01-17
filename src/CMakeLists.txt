@@ -4,7 +4,11 @@ project(MPP)
 file (GLOB_RECURSE sources *.h *.cpp *.hpp *.tpp)
 
 find_package(CGAL REQUIRED)
+find_package(PkgConfig REQUIRED)
+
 include_directories(include tools)
 
+pkg_check_modules(CLIPPER REQUIRED IMPORTED_TARGET Clipper2)
+
 add_executable(mpp ${sources})
-target_link_libraries(mpp CGAL::CGAL)
+target_link_libraries(mpp CGAL::CGAL PkgConfig::CLIPPER)

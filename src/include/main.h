@@ -11,6 +11,7 @@
 #include "bottom_left.h"
 #include "genetic_algorithm_simple.h"
 #include "genetic_algorithm_threaded.h"
+#include "genetic_algorithm_threaded_incremental.h"
 
 bool visualize = false;
 int algorithm = 4;
