@@ -69,6 +69,20 @@ int main(int argc, char** argv)
         GeneticAlgorithmThreadedIncremental solver = GeneticAlgorithmThreadedIncremental();
         solver.solve(problem);
     }
+    else if (algorithm == 8)
+    {
+        GeneticAlgorithmThreadedCorner solver = GeneticAlgorithmThreadedCorner();
+        solver.solve(problem);
+    }
+    else if (algorithm == 9)
+    {
+        std::vector<Strategy> strategies;
+        for (int i = 0; i < problem->getItems().size(); i++) {
+            strategies.push_back(TR);
+        }
+        Corner solver = Corner(strategies);
+        solver.solve(problem);
+    }
     
     auto time = dif(tms, start);
     problem->addComment("Time: " + std::to_string(time.count()) + "ms");

@@ -29,3 +29,11 @@ std::vector<Candidate> Individual::get_candidates() {
 void Individual::set_candidates(std::vector<Candidate> candidates) {
     this->candidates = candidates;
 }
+
+std::vector<Strategy> Individual::get_strategies() {
+    return this->strategies;
+}
+
+void Individual::set_strategies(std::vector<Strategy> strategies) {
+    this->strategies = strategies;
+}

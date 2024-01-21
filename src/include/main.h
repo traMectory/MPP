@@ -12,6 +12,7 @@
 #include "genetic_algorithm_simple.h"
 #include "genetic_algorithm_threaded.h"
 #include "genetic_algorithm_threaded_incremental.h"
+#include "genetic_algorithm_threaded_corner.h"
 
 bool visualize = false;
 int algorithm = 4;
