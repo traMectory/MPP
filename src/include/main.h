@@ -12,3 +12,13 @@
 
 bool visualize = false;
 int algorithm = 4;
+
+GASpecifics GAHyperparams({
+    10, //populationSize;
+    10, //generations;
+    {}, //leave blank
+    0.2, //mutationRate;
+    0.6, //crossoverRate;
+    "SingleSwap", //mutationType;
+    "OX" //crossoverType;
+});
