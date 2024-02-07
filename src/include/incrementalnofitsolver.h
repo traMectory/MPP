@@ -12,64 +12,42 @@ static void intersectZCallback(const Point64& e1bot, const Point64& e1top,
     const Point64& e2bot, const Point64& e2top, Point64& pt)
 {
     const Point64 *first, *second;
-    pt.z = 1;
-    if (e1bot.z == 1 || e1top.z == 1) {
-        if (&e1top == (&e1bot + 1)) {
-            first = &e1bot;
-            second = &e1top;
-        }
-        else if (&e1bot == (&e1top + 1)) {
-            first = &e1top;
-            second = &e1bot;
-        }
-        else if (&e1top < &e1bot) {
-            first = &e1bot;
-            second = &e1top;
-        }
-        else
-        {
-            first = &e1top;
-            second = &e1bot;
-        }
+
+    //std::cout << e1top.z << " " << e1bot.z << "\n";
+
+    if (e1top.z == e1bot.z + 1) {
+        first = &e1bot;
+        second = &e1top;
     }
-    else if (e2bot.z == 1 || e2top.z == 1) {
-        if (&e1top == (&e1bot + 1)) {
-            first = &e1bot;
-            second = &e1top;
-        }
-        else if (&e1bot == (&e1top + 1)) {
-            first = &e1top;
-            second = &e1bot;
-        }
-        else if (&e1top < &e1bot) {
-            first = &e1bot;
-            second = &e1top;
-        }
-        else
-        {
-            first = &e1top;
-            second = &e1bot;
-        }
+    else if (e1bot.z == e1top.z + 1) {
+        first = &e1top;
+        second = &e1bot;
     }
-    else {
-        return;
+    else if (e1top.z < e1bot.z) {
+        first = &e1bot;
+        second = &e1top;
+    }
+    else
+    {
+        first = &e1top;
+        second = &e1bot;
     }
     if (first->y < second->y) {
-        pt.x -= 1;
+        pt.x -= 0;
         if (first->x < second->x) {
             pt.y += 1;
         }
         else if (first->x > second->x) {
-            pt.y -= 1;
+            pt.y -= 0;
         }
     }
     else if (first->y > second->y) {
         pt.x += 1;
-        if (first->x < second->y) {
+        if (first->x < second->x) {
             pt.y += 1;
         }
         else if (first->x > second->x) {
-            pt.y -= 1;
+            pt.y -= 0;
         }
     }
     else {
@@ -77,13 +55,15 @@ static void intersectZCallback(const Point64& e1bot, const Point64& e1top,
     }
 }
 
+
 enum class PlacementStrategy {
     BOTTOM_LEFT,
     BOTTOM_RIGHT,
     TOP_LEFT,
     TOP_RIGHT,
     MIN_DIST,
-    CONCAVE_FIT
+    CONCAVE_FIT,
+    TOPOS
 };
 
 enum class ComparisonResult {
@@ -114,6 +94,14 @@ struct ItemWithNoFit {
     Path rightEdge;
     std::vector<ConvexEdgeList> convexDecomp;
     std::vector<ConvexEdgeList> inversePoly;
+    Point64 bottomLeft;
+    Point64 topRight;
+};
+
+struct BoundingBox {
+    Point64 bottomLeft;
+    Point64 topRight;
+    Point64 center;
 };
 
 class IncrementalNoFitSolver : public Solver
@@ -123,26 +111,22 @@ protected:
     Polygon container;
     std::vector<Item*> items;
     Path pathContainer;
+    std::vector<Item*> unusedItems;
 
 
     Paths placedPieces;
+    std::list<BoundingBox> placedBBoxes;
 
     std::list<ItemWithNoFit*> itemsWithNoFit;
 
-    Point bottomLeft;
+    BoundingBox BBoxPlaced;
 
     void initNoFits(size_t index);
 
     void additionalInits() {
-        NT xmin = std::numeric_limits<long>::max(), ymin = std::numeric_limits<long>::max();
-        for (auto p: problem->getContainer())
-        {
-            if (p.x() < xmin)
-                xmin = p.x();
-            if (p.y() < ymin)
-                ymin = p.y();
-        }
-        bottomLeft = Point(xmin, ymin);
+        Point64 bottomLeftPlaced = Point64(std::numeric_limits<int64_t>::max(), std::numeric_limits<int64_t>::max());
+        Point64 topRightPlaced = Point64(std::numeric_limits<int64_t>::min(), std::numeric_limits<int64_t>::min());
+        BBoxPlaced = { bottomLeftPlaced, topRightPlaced, {0,0} };
     };
 
     void updateNoFits(ItemWithNoFit* addedPiece, Point64& translation);
@@ -151,11 +135,9 @@ protected:
 
     bool findBestItem(ItemWithNoFit* &bestItem, Point64& translation);
 
-    bool findBestPlacement(ItemWithNoFit* testedItem, Point64& attachmentPoint);
+    bool findBestPlacement(ItemWithNoFit* testedItem, Point64& attachmentPoint, int64_t& eval);
 
-    int64_t evalPlacement(ItemWithNoFit* item, Point64& translation);
-
-    bool tieBreak(ItemWithNoFit* first, ItemWithNoFit* second);
+    bool ItemIsBetter(ItemWithNoFit* item1, Point64& translation1, int64_t eval1, ItemWithNoFit* item2, Point64& translation2, int64_t eval2);
 
     ComparisonResult compareEval(int64_t first, int64_t second) {
         //returns true iff first position eval is better than second
@@ -176,18 +158,18 @@ public:
 
     SolveStatus solve(Problem* prob);
 
-    //static void getHullVacancies(const Polygon& poly, std::vector<Polygon>& vacancies);
+    static void getBestFitOrder(Problem *problem);
 
-    bool bestFit = true;
+    bool bestFit = false;
 
     size_t batchSize = 999999;
 
-    int64_t scaleFactor = 1000000;
+    int64_t scaleFactor = 1;
 
-    PlacementStrategy placementMode = PlacementStrategy::MIN_DIST;
+    PlacementStrategy placementMode = PlacementStrategy::BOTTOM_LEFT;
    
+    bool reorderItems = false;
 
     bool DEBUG = false;
     bool VERBOSE = true;
 };
-
