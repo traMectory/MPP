@@ -15,10 +15,15 @@
 #include <CGAL/Quotient.h>
 #include <CGAL/CORE_BigRat.h>
 #include <CGAL/minkowski_sum_2.h>
+#include <CGAL/convex_hull_2.h>
+#include <CGAL/convex_hull_traits_adapter_2.h>
+#include <CGAL/property_map.h>
+#include <CGAL/Small_side_angle_bisector_decomposition_2.h>
+#include <CGAL/partition_2.h>
+#include <CGAL/Partition_traits_2.h>
 
 using json = nlohmann::json;
 
-//typedef CGAL::Lazy_exact_nt<CGAL::Quotient<CGAL::MP_Float>> NT;
 //typedef double NT;
 typedef CGAL::Exact_predicates_exact_constructions_kernel K;
 //typedef CGAL::Cartesian<NT> K;
@@ -27,12 +32,17 @@ typedef CGAL::Polygon_with_holes_2<K> Polygon_with_holes;
 typedef CGAL::Polygon_2<K> Polygon;
 typedef Polygon::Vertex_iterator VertexIterator;
 typedef Polygon::Edge_const_iterator EdgeIterator;
-typedef K::Point_2 Point;
+typedef CGAL::Point_2<K> Point;
 typedef K::Line_2 Line;
 typedef K::Segment_2 Segment;
 typedef CGAL::Bbox_2 Bbox;
 typedef CGAL::Iso_rectangle_2<K> Iso_rectangle;
 typedef Polygon::Vertex_circulator VertexCirculator;
+typedef CGAL::Aff_transformation_2<K> Transformation;
+typedef CGAL::Vector_2<K> Vector;
+typedef CGAL::Convex_hull_traits_adapter_2<K, CGAL::Pointer_property_map<Point>::type > Convex_hull_traits;
+typedef CGAL::Partition_traits_2<K, CGAL::Pointer_property_map<K::Point_2>::type > Partition_traits;
+
 
 struct Edge
 {
@@ -58,6 +68,31 @@ struct Candidate
     NT y_translation;
 };
 
+struct GASpecifics {
+    size_t populationSize;
+    size_t generations;
+    std::vector<long long> fitness;
+    double mutationRate;
+    double crossoverRate;
+    std::string mutationType;
+    std::string crossoverType;
+
+    json toJSON() {
+        json hyperparams;
+        hyperparams["population-size"] = populationSize;
+        hyperparams["generations"] = generations;
+        hyperparams["fitness"] = {};
+        for (auto f : fitness) {
+            hyperparams["fitness"].push_back(f);
+        }
+        hyperparams["mutation-rate"] = mutationRate;
+        hyperparams["crossover-rate"] = crossoverRate;
+        hyperparams["mutation-type"] = mutationType;
+        hyperparams["crossover-type"] = crossoverType;
+        return hyperparams;
+    };
+};
+
 class Problem
 {
 private:
@@ -73,9 +108,14 @@ private:
 
     int num_items;
 
+    int num_candidates = 0;
+
     long long score = 0;
 
     long time;
+    std::string algorithmType;
+    std::string placementStrategy;
+    json algorithmSpecifics;
 
 public:
     // Problem(Polygon poly)
@@ -85,7 +125,7 @@ public:
     //     boundary_polgyon = poly;
     // };
 
-    Problem(char *file_name);
+    Problem(char* file_name);
 
     Problem(Polygon cont, std::vector<Polygon> cands)
     {
@@ -104,16 +144,23 @@ public:
 
     long long getScore() { return score; };
 
-    void setTime(long t) { time = t; };
+    void setRunningTime(long t) { time = t; };
+    void setAlgorithmType(std::string t) { algorithmType = t; };
+    void setPlacementStrategy(std::string s) { placementStrategy = s; };
+    std::string getPlacementStrategy() { return placementStrategy; };
+    void setAlgorithmSpecifics(json s) { algorithmSpecifics = s; };
+    void setAlgorithmSpecifics(GASpecifics h) { algorithmSpecifics = h.toJSON(); };
     void addComment(std::string c) { comments.push_back(c); };
+    std::vector<std::string> getComments() { return comments; };
 
     // void addToPacking(Polygon c) { packing_polygons.push_back(c); };
 
     // void loadSolution();
-    void loadSolution(char *file_name);
+    void loadSolution(char* file_name);
 
     std::string getString() { return name; };
     int getNumItems() { return num_items; };
+    int getNumCandidates() { return num_candidates; };
 
     void setItems(std::vector<Item*> itemsN) { items = itemsN; num_items = items.size(); };
 
@@ -121,7 +168,7 @@ public:
 
     bool test() { return true; };
 
-    void addCandidate(Candidate cand, int value) { candidates.push_back(cand); score += value; };
+    void addCandidate(Candidate cand, int value) { candidates.push_back(cand); score += value; num_candidates += 1; };
 
     Polygon getContainer() { return container; };
     std::vector<Item*> getItems() { return items; };

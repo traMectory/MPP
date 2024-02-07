@@ -40,7 +40,7 @@
 // //     return true;
 // // }
 
-Problem::Problem(char *file_name)
+Problem::Problem(char* file_name)
 {
     std::ifstream f(file_name);
 
@@ -103,6 +103,11 @@ void Problem::storeSolution(std::string loc)
     output["x_translations"] = {};
     output["y_translations"] = {};
     output["comments"] = {};
+    output["score"] = score;
+    output["running-time"] = time;
+    output["algorithm-type"] = algorithmType;
+    output["placement-strategy"] = placementStrategy;
+    output["algorithm-specifics"] = algorithmSpecifics;
 
     for (std::string comment : comments)
     {
@@ -275,7 +280,7 @@ void Problem::visualizeSolution()
 
 void Problem::roundItems()
 {
-    for (Item *item : items)
+    for (Item* item : items)
     {
         Polygon it = item->poly;
 
