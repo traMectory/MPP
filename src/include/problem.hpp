@@ -68,6 +68,31 @@ struct Candidate
     NT y_translation;
 };
 
+struct GASpecifics {
+    size_t populationSize;
+    size_t generations;
+    std::vector<long long> fitness;
+    double mutationRate;
+    double crossoverRate;
+    std::string mutationType;
+    std::string crossoverType;
+
+    json toJSON() {
+        json hyperparams;
+        hyperparams["population-size"] = populationSize;
+        hyperparams["generations"] = generations;
+        hyperparams["fitness"] = {};
+        for (auto f : fitness) {
+            hyperparams["fitness"].push_back(f);
+        }
+        hyperparams["mutation-rate"] = mutationRate;
+        hyperparams["crossover-rate"] = crossoverRate;
+        hyperparams["mutation-type"] = mutationType;
+        hyperparams["crossover-type"] = crossoverType;
+        return hyperparams;
+    };
+};
+
 class Problem
 {
 private:
@@ -83,9 +108,14 @@ private:
 
     int num_items;
 
+    int num_candidates = 0;
+
     long long score = 0;
 
     long time;
+    std::string algorithmType;
+    std::string placementStrategy;
+    json algorithmSpecifics;
 
 public:
     // Problem(Polygon poly)
@@ -114,8 +144,14 @@ public:
 
     long long getScore() { return score; };
 
-    void setTime(long t) { time = t; };
+    void setRunningTime(long t) { time = t; };
+    void setAlgorithmType(std::string t) { algorithmType = t; };
+    void setPlacementStrategy(std::string s) { placementStrategy = s; };
+    std::string getPlacementStrategy() { return placementStrategy; };
+    void setAlgorithmSpecifics(json s) { algorithmSpecifics = s; };
+    void setAlgorithmSpecifics(GASpecifics h) { algorithmSpecifics = h.toJSON(); };
     void addComment(std::string c) { comments.push_back(c); };
+    std::vector<std::string> getComments() { return comments; };
 
     // void addToPacking(Polygon c) { packing_polygons.push_back(c); };
 
@@ -124,6 +160,7 @@ public:
 
     std::string getString() { return name; };
     int getNumItems() { return num_items; };
+    int getNumCandidates() { return num_candidates; };
 
     void setItems(std::vector<Item*> itemsN) { items = itemsN; num_items = items.size(); };
 
@@ -131,7 +168,7 @@ public:
 
     bool test() { return true; };
 
-    void addCandidate(Candidate cand, int value) { candidates.push_back(cand); score += value; };
+    void addCandidate(Candidate cand, int value) { candidates.push_back(cand); score += value; num_candidates += 1; };
 
     Polygon getContainer() { return container; };
     std::vector<Item*> getItems() { return items; };
