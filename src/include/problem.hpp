@@ -91,6 +91,33 @@ struct GASpecifics {
         hyperparams["crossover-type"] = crossoverType;
         return hyperparams;
     };
+
+    void fromJSON(json params) {
+        if (params.contains("population-size"))
+            populationSize = params["population-size"];
+        else
+            std::cerr << "no population-size defined in config";
+        if (params.contains("generations"))
+            generations = params["generations"];
+        else
+            std::cerr << "no generations defined in config";
+        if (params.contains("mutation-rate"))
+            mutationRate = params["mutation-rate"];
+        else
+            std::cerr << "no mutation-rate defined in config";
+        if (params.contains("crossover-rate"))
+            crossoverRate = params["crossover-rate"];
+        else
+            std::cerr << "no crossover-rate defined in config";
+        if (params.contains("mutation-type"))
+            mutationType = params["mutation-type"];
+        else
+            std::cerr << "no mutation-type defined in config";
+        if (params.contains("crossover-type"))
+            crossoverType = params["crossover-type"];
+        else
+            std::cerr << "no crossover-type defined in config";
+    }
 };
 
 class Problem
