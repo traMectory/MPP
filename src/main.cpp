@@ -19,14 +19,19 @@ int main(int argc, char** argv)
 
     Polygon c = Polygon();
     c.push_back(Point(0, 0));
-    c.push_back(Point(4, 0));
-    c.push_back(Point(4, 4));
-    c.push_back(Point(0, 4));
+    c.push_back(Point(50, 0));
+    c.push_back(Point(50, 5));
+    c.push_back(Point(0, 5));
 
-    problem = Problem(c, {p, p});*/
+    std::vector<Polygon> polygons;
+
+    for (int i = 0; i < 50; i++) {
+        polygons.push_back(p);
+    }
+    problem = new Problem(c, polygons);*/
 
 
-    // Problem problem = Problem(argv[1]);
+    //Problem problem = Problem(argv[1]);
 
     auto start = tms;
 
@@ -85,6 +90,7 @@ int main(int argc, char** argv)
     }
     
     auto time = dif(tms, start);
+    std::cout << time.count() << " ms" << std::endl;
     problem->addComment("Time: " + std::to_string(time.count()) + "ms");
     problem->addComment("Score: " + std::to_string(problem->getScore()));
 
