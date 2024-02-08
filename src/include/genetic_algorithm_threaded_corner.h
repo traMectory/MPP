@@ -21,8 +21,8 @@ private:
     static constexpr int QUIT = 1;
     static constexpr int CROSSOVER = 2;
     int state = INITIALIZE_INDIVIDUAL;
-    static const int n_threads = 12;
-    static const int m = 12;
+    static const int n_threads = 6;
+    static const int m = 240;
     std::vector<Individual> population;
     std::function<Individual(long)> fitness;
     Problem *prob{};
@@ -31,7 +31,7 @@ private:
     std::vector<Individual> generation;
     std::vector<long long> scores;
     std::vector<std::thread> threads;
-    std::counting_semaphore<1> *working_threads[12];
+    std::counting_semaphore<1> *working_threads[6];
     std::mutex mut_population;
     std::mutex mut_generation;
     std::mutex mut_tasks;

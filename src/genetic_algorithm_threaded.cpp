@@ -107,10 +107,13 @@ SolveStatus GeneticAlgorithmThreaded::solve(Problem *prob) {
 
     // Initialization (Calculating fitness for initial individuals)
     this->initialization();
+    /*for (int i = 0; i < this->population.size() - 1; i++) {
+        std::cout << this->population[i].get_fitness() << " ";
+    }
+    std::cout << this->population[this->population.size() - 1].get_fitness() << std::endl;*/
     std::cout << "Best fitness after initialization: " << this->population[this->population.size() - 1].get_fitness() << std::endl;
-
     // Generate g new generation
-    for (int g = 0; g < 1000; g++) {
+    for (int g = 0; g < 100; g++) {
         // Send crossover tasks to thread pool
         for (int i = 0; i < m; i++) {
             this->tasks.push(CROSSOVER);
@@ -144,6 +147,10 @@ SolveStatus GeneticAlgorithmThreaded::solve(Problem *prob) {
         prob->clearCandidates();
         prob->setScore(0);
 
+        /*for (int i = 0; i < this->population.size() - 1; i++) {
+            std::cout << this->population[i].get_fitness() << " ";
+        }
+        std::cout << this->population[this->population.size() - 1].get_fitness() << std::endl;*/
         std::cout << "["  << g << "]: " << this->population[this->population.size() - 1].get_fitness() << std::endl;
         this->generation.clear();
     }

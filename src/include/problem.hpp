@@ -66,6 +66,58 @@ struct Candidate
     NT y_translation;
 };
 
+struct GASpecifics {
+    size_t populationSize;
+    size_t generations;
+    std::vector<long long> fitness;
+    double mutationRate;
+    double crossoverRate;
+    std::string mutationType;
+    std::string crossoverType;
+
+    json toJSON() {
+        json hyperparams;
+        hyperparams["population-size"] = populationSize;
+        hyperparams["generations"] = generations;
+        hyperparams["fitness"] = {};
+        for (auto f : fitness) {
+            hyperparams["fitness"].push_back(f);
+        }
+        hyperparams["mutation-rate"] = mutationRate;
+        hyperparams["crossover-rate"] = crossoverRate;
+        hyperparams["mutation-type"] = mutationType;
+        hyperparams["crossover-type"] = crossoverType;
+        return hyperparams;
+    };
+
+    void fromJSON(json params) {
+        if (params.contains("population-size"))
+            populationSize = params["population-size"];
+        else
+            std::cerr << "no population-size defined in config";
+        if (params.contains("generations"))
+            generations = params["generations"];
+        else
+            std::cerr << "no generations defined in config";
+        if (params.contains("mutation-rate"))
+            mutationRate = params["mutation-rate"];
+        else
+            std::cerr << "no mutation-rate defined in config";
+        if (params.contains("crossover-rate"))
+            crossoverRate = params["crossover-rate"];
+        else
+            std::cerr << "no crossover-rate defined in config";
+        if (params.contains("mutation-type"))
+            mutationType = params["mutation-type"];
+        else
+            std::cerr << "no mutation-type defined in config";
+        if (params.contains("crossover-type"))
+            crossoverType = params["crossover-type"];
+        else
+            std::cerr << "no crossover-type defined in config";
+    }
+};
+
 class Problem
 {
 private:
@@ -81,9 +133,14 @@ private:
 
     int num_items;
 
+    int num_candidates = 0;
+
     long long score = 0;
 
     long time;
+    std::string algorithmType;
+    std::string placementStrategy;
+    json algorithmSpecifics;
 
 public:
 
@@ -115,8 +172,14 @@ public:
     long long getScore() { return score; };
     void setScore(long long nscore) { score = nscore; };
 
-    void setTime(long t) { time = t; };
+    void setRunningTime(long t) { time = t; };
+    void setAlgorithmType(std::string t) { algorithmType = t; };
+    void setPlacementStrategy(std::string s) { placementStrategy = s; };
+    std::string getPlacementStrategy() { return placementStrategy; };
+    void setAlgorithmSpecifics(json s) { algorithmSpecifics = s; };
+    void setAlgorithmSpecifics(GASpecifics h) { algorithmSpecifics = h.toJSON(); };
     void addComment(std::string c) { comments.push_back(c); };
+    std::vector<std::string> getComments() { return comments; };
 
     // void addToPacking(Polygon c) { packing_polygons.push_back(c); };
 
@@ -125,6 +188,7 @@ public:
 
     std::string getString() { return name; };
     int getNumItems() { return num_items; };
+    int getNumCandidates() { return num_candidates; };
 
     void setItems(std::vector<Item*> itemsN) { items = itemsN; num_items = items.size(); };
 

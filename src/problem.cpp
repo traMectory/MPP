@@ -103,6 +103,11 @@ void Problem::storeSolution(std::string loc)
     output["x_translations"] = {};
     output["y_translations"] = {};
     output["comments"] = {};
+    output["score"] = score;
+    output["running-time"] = time;
+    output["algorithm-type"] = algorithmType;
+    output["placement-strategy"] = placementStrategy;
+    output["algorithm-specifics"] = algorithmSpecifics;
 
     for (std::string comment : comments)
     {

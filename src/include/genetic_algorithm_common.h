@@ -2,6 +2,7 @@
 #define GENETIC_ALGORITHM_COMMON_H
 
 #include <vector>
+#include <chrono>
 #include "problem.hpp"
 #include "corner.h"
 

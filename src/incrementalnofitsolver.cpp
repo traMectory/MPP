@@ -184,6 +184,7 @@ SolveStatus IncrementalNoFitSolver::solve(Problem* prob)
 {
 	problem = prob;
 	int c = 0;
+	std::vector<Item*> reorderedItems;
 
 	int iters = 0;
 	for(size_t i = 0; i < problem->getNumItems(); i += batchSize) {
@@ -191,26 +192,65 @@ SolveStatus IncrementalNoFitSolver::solve(Problem* prob)
 		additionalInits();
 		while (true)
 		{
-			ItemWithNoFit* bestItem;
+			ItemWithNoFit* bestItem = NULL;
 			Point64 translation;
 
 			if (!findBestItem(bestItem, translation)) {
 				break;
 			}
 			
-			--bestItem->item->quantity;
-			if (bestItem->item->quantity <= 0)
+			if (reorderItems) {
+				reorderedItems.push_back(bestItem->item);
 				itemsWithNoFit.remove(bestItem);
+			}
+			else {
+				--bestItem->item->quantity;
+				if (bestItem->item->quantity <= 0) {
+					itemsWithNoFit.remove(bestItem);
+				}
+			}
 			addNewPiece(bestItem, translation);
+			if (bestItem->item->quantity <= 0) {
+				delete bestItem;
+			}
 			++c;
-			if (VERBOSE)
-				std::cout << bestItem->item->index << "\n" << c << " pieces placed\n";
+			if (VERBOSE && (c % 100 == 0)) {
+				std::cout << problem->getString() << ": " << c << " pieces placed\n";
+			}
 		}
-		
 		iters++;
 		//toIPE2("test.ipe", problem->getContainer(), { placedPieces }, {});
 	}
-	prob->addComment("Piece that is closest to bottom left is placed next");
+	if (reorderItems) {
+		reorderedItems.insert(reorderedItems.end(), unusedItems.begin(), unusedItems.end());
+		prob->setItems(reorderedItems);
+	}
+	switch (placementMode)
+	{
+	case PlacementStrategy::BOTTOM_LEFT:
+		prob->setPlacementStrategy("bottom-left");
+		prob->addComment("Position ist determined by left-most of the bottom-most positions");
+		break;
+	case PlacementStrategy::BOTTOM_RIGHT:
+		break;
+	case PlacementStrategy::TOP_LEFT:
+		break;
+	case PlacementStrategy::TOP_RIGHT:
+		break;
+	case PlacementStrategy::MIN_DIST:
+		prob->setPlacementStrategy("min-dist");
+		prob->addComment("Closest position to (0,0) ist chosen (euclidean distance)");
+		break;
+	case PlacementStrategy::CONCAVE_FIT:
+		break;
+	case PlacementStrategy::TOPOS:
+		prob->setPlacementStrategy("topos");
+		break;
+	default:
+		break;
+	}
+
+	while (!itemsWithNoFit.empty()) delete itemsWithNoFit.front(), itemsWithNoFit.pop_front();
 	return SolveStatus::Feasible;
 }
 
@@ -277,7 +317,8 @@ void IncrementalNoFitSolver::initNoFits(size_t index) {
 			polyDecompIndices.begin(),
 			polyDecompIndices.end(),
 			traits)){
-			std::cout << "optimal decomposition not found for polygon  " << items[i]->index << "\n";
+			if (VERBOSE)
+				std::cout << "optimal decomposition not found for polygon  " << items[i]->index << "\n";
 			polyDecompIndices = {};
 			CGAL::approx_convex_partition_2(polyIndices.vertices_begin(), polyIndices.vertices_end(), std::back_inserter(polyDecompIndices), traits);
 			assert(CGAL::convex_partition_is_valid_2(polyIndices.vertices_begin(),
@@ -319,9 +360,8 @@ void IncrementalNoFitSolver::initNoFits(size_t index) {
 			do {
 				int64_t x = (points[*next].x() - points[*previous].x()).interval().sup() * scaleFactor;
 				int64_t y = (points[*next].y() - points[*previous].y()).interval().sup() * scaleFactor;
-				double slope = x == 0 ? std::numeric_limits<double>::max() : ((double)y) / ((double)x);
-				EdgeVector ev({ Point64(x, y), slope });
-				EdgeVector evInverse({ Point64(-x, -y), slope });
+				EdgeVector ev(Point64(x, y));
+				EdgeVector evInverse(Point64(-x, -y));
 
 				if (rightHalf && x < 0) {
 					rightHalf = false;
@@ -365,10 +405,13 @@ void IncrementalNoFitSolver::initNoFits(size_t index) {
 			Path hole;
 			for (auto p: innerFitHole)
 			{
-				hole.push_back({ p.x().interval().sup() * scaleFactor, p.y().interval().sup() * scaleFactor });
+				Point64 clipperP(p.x().interval().sup(), p.y().interval().sup(), 1);
+				hole.push_back({ CGAL::to_double(p.x()) * scaleFactor, CGAL::to_double(p.y()) * scaleFactor, 999 });
 			}
 			innerFit.push_back(Clipper2Lib::TrimCollinear(hole));
 		}
+		innerFit = Clipper2Lib::InflatePaths(innerFit, -12, Clipper2Lib::JoinType::Square, Clipper2Lib::EndType::Polygon);
+
 
 		Polygon placedNoFit = CGAL::minkowski_sum_2(placedPoly, inverse).outer_boundary();
 		Path placedNoFitPath;
@@ -377,11 +420,42 @@ void IncrementalNoFitSolver::initNoFits(size_t index) {
 		}
 		innerFit = Clipper2Lib::Difference(innerFit, { placedNoFitPath }, Clipper2Lib::FillRule::NonZero);
 
-		itemsWithNoFit.push_back(new ItemWithNoFit({ items[i], innerFit, rightEdge, polyDecomp, inverseDecomp }));
+		for (auto& path : innerFit) {
+			int64_t index = 0;
+			for (auto& p : path)
+			{
+				p.z = index;
+				++index;
+			}
+		}
+
+		//find bottom-left and top-right of bounding box
+		int64_t minX = std::numeric_limits<int64_t>::max();
+		int64_t minY = std::numeric_limits<int64_t>::max();
+		int64_t maxX = std::numeric_limits<int64_t>::min();
+		int64_t maxY = std::numeric_limits<int64_t>::min();
+
+		for (auto& p : items[i]->poly) {
+			int64_t currentX = CGAL::to_double(p.x());
+			int64_t currentY = CGAL::to_double(p.y());
+			if (currentX < minX)
+				minX = currentX;
+			if (currentY < minY)
+				minY = currentY;
+			if (currentX > maxX)
+				maxX = currentX;
+			if (currentY > maxY)
+				maxY = currentY;
+		}
+		Point64 bl = { minX, minY };
+		Point64 tr = { maxX,maxY };
+
+		itemsWithNoFit.push_back(new ItemWithNoFit({ items[i], innerFit, rightEdge, polyDecomp, inverseDecomp, bl, tr }));
 	}
 }
 
 void IncrementalNoFitSolver::additionalUpdates(ItemWithNoFit* addedPiece, Point64& translation) {
+	//store approximation of added pieces
 	Path added;
 	for (auto& p : addedPiece->rightEdge) {
 		added.push_back(p + translation);
@@ -401,6 +475,23 @@ void IncrementalNoFitSolver::additionalUpdates(ItemWithNoFit* addedPiece, Point6
 		placedPieces = { *outer };
 	}
 
+	//add new bbox
+	BoundingBox newBBox = { addedPiece->bottomLeft + translation, addedPiece->topRight + translation, translation +  (addedPiece->topRight + addedPiece->bottomLeft) * 0.5 };
+	placedBBoxes.push_back(newBBox);
+	if (placedBBoxes.size() > 50)
+		placedBBoxes.pop_front();
+
+	//update placed bbox
+	if (newBBox.bottomLeft.x < BBoxPlaced.bottomLeft.x)
+		BBoxPlaced.bottomLeft.x = newBBox.bottomLeft.x;
+	if (newBBox.bottomLeft.y < BBoxPlaced.bottomLeft.y)
+		BBoxPlaced.bottomLeft.y = newBBox.bottomLeft.y;
+	if (newBBox.topRight.x > BBoxPlaced.topRight.x)
+		BBoxPlaced.topRight.x = newBBox.topRight.x;
+	if (newBBox.topRight.y > BBoxPlaced.topRight.y)
+		BBoxPlaced.topRight.y = newBBox.topRight.y;
+	BBoxPlaced.center = BBoxPlaced.bottomLeft * 0.5 + BBoxPlaced.topRight * 0.5;
+
 }
 
 void IncrementalNoFitSolver::updateNoFits(ItemWithNoFit* addedPiece, Point64& translation) {
@@ -408,78 +499,85 @@ void IncrementalNoFitSolver::updateNoFits(ItemWithNoFit* addedPiece, Point64& tr
 	//update no-fit polygons
 	
 	//long t1 = 0, t2 = 0;
-	for (auto it : itemsWithNoFit)
-	{
-		//auto start = std::chrono::high_resolution_clock::now();
-		Paths noFitParts = Paths({});
-		for (auto addedPart : addedPiece->convexDecomp)
+	std::for_each(std::execution::par, std::begin(itemsWithNoFit), std::end(itemsWithNoFit), [&](ItemWithNoFit *it)
 		{
-			for (auto inversePart : it->inversePoly)
+			//auto start = std::chrono::high_resolution_clock::now();
+			Paths noFitParts = Paths({});
+			for (auto addedPart : addedPiece->convexDecomp)
 			{
-				Point64 previous = addedPart.start + inversePart.start + translation;
-				Path currentNoFit({ previous });
+				for (auto inversePart : it->inversePoly)
+				{
+					Point64 previous = addedPart.start + inversePart.start + translation;
+					previous.z = -1;
+					Path currentNoFit({ previous });
 
-				size_t i = 0, j = 0;
-				while (i < addedPart.rightEdges.size() || j < inversePart.rightEdges.size())
-				{
-					if (j >= inversePart.rightEdges.size() || (i < addedPart.rightEdges.size() && addedPart.rightEdges[i].slope <= inversePart.rightEdges[j].slope)) {
-						previous = addedPart.rightEdges[i].vec + previous;
-						currentNoFit.push_back(previous);
-						++i;
+					size_t i = 0, j = 0;
+					while (i < addedPart.rightEdges.size() || j < inversePart.rightEdges.size())
+					{
+						if (j >= inversePart.rightEdges.size() || (i < addedPart.rightEdges.size() && addedPart.rightEdges[i].slope <= inversePart.rightEdges[j].slope)) {
+							previous = addedPart.rightEdges[i].vec + previous;
+							previous.z = -1;
+							currentNoFit.push_back(previous);
+							++i;
+						}
+						else {
+							previous = inversePart.rightEdges[j].vec + previous;
+							previous.z = -1;
+							currentNoFit.push_back(previous);
+							++j;
+						}
 					}
-					else {
-						previous = inversePart.rightEdges[j].vec + previous;
-						currentNoFit.push_back(previous);
-						++j;
+					i = 0, j = 0;
+					while (i < addedPart.leftEdges.size() || j < inversePart.leftEdges.size())
+					{
+						if (j >= inversePart.leftEdges.size() || (i < addedPart.leftEdges.size() && addedPart.leftEdges[i].slope <= inversePart.leftEdges[j].slope)) {
+							previous = addedPart.leftEdges[i].vec + previous;
+							previous.z = -1;
+							currentNoFit.push_back(previous);
+							++i;
+						}
+						else {
+							previous = inversePart.leftEdges[j].vec + previous;
+							previous.z = -1;
+							currentNoFit.push_back(previous);
+							++j;
+						}
 					}
+					noFitParts.push_back(Clipper2Lib::TrimCollinear(currentNoFit));
 				}
-				i = 0, j = 0;
-				while (i < addedPart.leftEdges.size() || j < inversePart.leftEdges.size())
-				{
-					if (j >= inversePart.leftEdges.size() || (i < addedPart.leftEdges.size() && addedPart.leftEdges[i].slope <= inversePart.leftEdges[j].slope)) {
-						previous = addedPart.leftEdges[i].vec + previous;
-						currentNoFit.push_back(previous);
-						++i;
-					}
-					else {
-						previous = inversePart.leftEdges[j].vec + previous;
-						currentNoFit.push_back(previous);
-						++j;
-					}
-				}
-				noFitParts.push_back(Clipper2Lib::TrimCollinear(currentNoFit));
 			}
-		}
-		//auto mid = std::chrono::high_resolution_clock::now();
-		//Paths noFit = Clipper2Lib::Union(noFitParts, Clipper2Lib::FillRule::NonZero);
-		//pathsToIPE("test.ipe", container, { {noFitPath}, it->innerFit });
-		//it->innerFit = Clipper2Lib::Difference(it->innerFit, noFitParts, Clipper2Lib::FillRule::NonZero);
-		//pathsToIPE("test.ipe", container, it->innerFit);
+			auto noFit = Clipper2Lib::InflatePaths(noFitParts, 3, Clipper2Lib::JoinType::Square, Clipper2Lib::EndType::Polygon);
 
-		Clipper2Lib::Clipper64 c;
-		c.AddSubject(it->innerFit);
-		c.AddClip(noFitParts);
-		Paths result;
-		
-		//c.SetZCallback(intersectZCallback);
+			Clipper2Lib::Clipper64 c;
+			c.AddSubject(it->innerFit);
+			c.AddClip(noFit);
+			Paths result;
 
-		c.Execute(Clipper2Lib::ClipType::Difference, Clipper2Lib::FillRule::NonZero, result);
-		
-		it->innerFit = result;
-		//std::cout << it->innerFit;
-		//auto stop = std::chrono::high_resolution_clock::now();
-		//t1 += std::chrono::duration_cast<std::chrono::nanoseconds>(mid - start).count();
-		//t2 += std::chrono::duration_cast<std::chrono::nanoseconds>(stop - mid).count();
-	}
-	//std::cout << t1 / 1000000 << "  " << t2 / 1000000 << "\n";
+			c.SetZCallback(intersectZCallback);
+
+			c.Execute(Clipper2Lib::ClipType::Difference, Clipper2Lib::FillRule::EvenOdd, result);
+
+			for (auto& path: result)
+			{
+				int64_t index = 0;
+				for (auto& p:path)
+				{
+					p.z = index;
+					++index;
+				}
+			}
+			it->innerFit = result;
+
+		});
 }
 
 void IncrementalNoFitSolver::addNewPiece(ItemWithNoFit* item, Point64& translation) {
 	translation.x = (translation.x / scaleFactor * scaleFactor);
 	translation.y = (translation.y / scaleFactor * scaleFactor);
-	Transformation translate(CGAL::TRANSLATION, Vector(NT((long) (translation.x / scaleFactor)), NT((long) (translation.y / scaleFactor))));
+	Transformation translate(CGAL::TRANSLATION, Vector(NT(((double)translation.x / (double)scaleFactor)), NT(((double)translation.y / (double)scaleFactor))));
 	Candidate addedCand({item->item->index, transform(translate, item->item->poly), (long) (translation.x /scaleFactor), (long) (translation.y / scaleFactor)});
-	problem->addCandidate(addedCand, item->item->value);
+	if(!reorderItems)
+		problem->addCandidate(addedCand, item->item->value);
 	updateNoFits(item, translation);
 	additionalUpdates(item, translation);
 	//placedPieces = Clipper2Lib::Union(placedPieces, { newPiece }, Clipper2Lib::FillRule::NonZero);
@@ -491,46 +589,49 @@ bool IncrementalNoFitSolver::findBestItem(ItemWithNoFit*& bestItem, Point64& tra
 
 	int64_t bestEval = compareEval(1, 0) == ComparisonResult::BETTER ? std::numeric_limits<int64_t>::min() : std::numeric_limits<int64_t>::max();
 	for (auto it = itemsWithNoFit.begin(); it!=itemsWithNoFit.end();) {
-		Clipper2Lib::Point64 attachmentPoint;
-		if (findBestPlacement(*it, attachmentPoint)) {
-			itemFound = true;
+		Point64 attachmentPoint;
+		int64_t eval = 0;
+		if (findBestPlacement(*it, attachmentPoint, eval)) {
 
 			if (bestFit) {
-				int64_t currentEval = evalPlacement(*it, attachmentPoint);
-				int comp = compareEval(currentEval, bestEval);
-				if (comp == ComparisonResult::EQUAL) {
-					if (tieBreak(*it, bestItem))
-						comp = ComparisonResult::BETTER;
-				}
-				if (comp == ComparisonResult::BETTER) {
-					bestEval = currentEval;
+				if (!itemFound || ItemIsBetter(*it, attachmentPoint, eval, bestItem, translation, bestEval)){
+					itemFound = true;
+					bestEval = eval;
 					bestItem = (*it);
 					translation = attachmentPoint;
 				}
 				++it;
 			}
 			else {
+				itemFound = true;
 				bestItem = (*it);
 				translation = attachmentPoint;
 				break;
 			}
 		}
 		else {
+			auto ptr = (*it);
+			if(reorderItems)
+				unusedItems.push_back((*it)->item);
 			it = itemsWithNoFit.erase(it);
+			if (!reorderItems) {
+				delete ptr;
+			}
 		}
 	}
 	return itemFound;
 }
 
-bool IncrementalNoFitSolver::findBestPlacement(ItemWithNoFit* testedItem, Point64& attachmentPoint) {
+bool IncrementalNoFitSolver::findBestPlacement(ItemWithNoFit* testedItem, Point64& attachmentPoint, int64_t& eval) {
 	//find best position for given item inside current container
 
 	bool positionFound = false;
 	attachmentPoint = Point64(std::numeric_limits<int64_t>::max(), std::numeric_limits<int64_t>::max());
+	eval = 0;
 
 	switch (placementMode)
 	{
-	case BOTTOM_LEFT:
+	case PlacementStrategy::BOTTOM_LEFT: {
 		for (auto& area : testedItem->innerFit) {
 			for (auto& p : area) {
 				if (p.y < attachmentPoint.y || (p.y == attachmentPoint.y && p.x < attachmentPoint.x)) {
@@ -540,13 +641,14 @@ bool IncrementalNoFitSolver::findBestPlacement(ItemWithNoFit* testedItem, Point6
 			}
 		}
 		break;
-	case BOTTOM_RIGHT:
+	}
+	case PlacementStrategy::BOTTOM_RIGHT:
 		break;
-	case TOP_LEFT:
+	case PlacementStrategy::TOP_LEFT:
 		break;
-	case TOP_RIGHT:
+	case PlacementStrategy::TOP_RIGHT:
 		break;
-	case MIN_DIST: {
+	case PlacementStrategy::MIN_DIST: {
 		int64_t minDist = std::numeric_limits<int64_t>::max();
 		for (auto& area : testedItem->innerFit) {
 			for (auto& p : area) {
@@ -555,6 +657,60 @@ bool IncrementalNoFitSolver::findBestPlacement(ItemWithNoFit* testedItem, Point6
 					minDist = approxDistance(p.x, p.y);
 					positionFound = true;
 				}
+			}
+		}
+		eval = minDist;
+		break;
+	}
+	case PlacementStrategy::CONCAVE_FIT: {
+		double bestMatch = -1;
+		for (auto& area : testedItem->innerFit) {
+			for (size_t i = 0; i < area.size(); i++) {
+				Point64 previousEdge = i > 0 ? area[i - 1] - area[i] : area[area.size() - 1] - area[i];
+				Point64 nextEdge = i < area.size() - 1 ? area[i + 1] - area[i] : area[0] - area[i];
+				double dot = ((double)(previousEdge.x * nextEdge.x + previousEdge.y * nextEdge.y)) / ((double)(approxDistance(previousEdge.x, previousEdge.y) * approxDistance(nextEdge.x, nextEdge.y)));
+				if (dot > bestMatch) {
+					positionFound = true;
+					attachmentPoint = area[i];
+					bestMatch = dot;
+				}
+			}
+		}
+		break;
+	}
+	case PlacementStrategy::TOPOS: {
+		eval = std::numeric_limits<int64_t>::max();
+		for (auto& area : testedItem->innerFit) {
+			for (auto& p : area) {
+				int64_t currentEval = 0;
+				BoundingBox testedBBox = { testedItem->bottomLeft + p, testedItem->topRight + p, (testedItem->bottomLeft + testedItem->topRight) * 0.5 + p };
+				Point64 newBL = { std::min(BBoxPlaced.bottomLeft.x, testedBBox.bottomLeft.x), std::min(BBoxPlaced.bottomLeft.y, testedBBox.bottomLeft.y) };
+				Point64 newTR = { std::max(BBoxPlaced.topRight.x, testedBBox.topRight.x), std::max(BBoxPlaced.topRight.y, testedBBox.topRight.y) };
+				//waste
+				currentEval += (newTR.x - newBL.x) * (newTR.y - newBL.y) - (BBoxPlaced.topRight.x - BBoxPlaced.bottomLeft.x) * (BBoxPlaced.topRight.y - BBoxPlaced.bottomLeft.y);
+
+				//overlap
+				int64_t overlap = 0;
+				for (auto& bbox : placedBBoxes) {
+					if (testedBBox.bottomLeft.x < bbox.topRight.x && testedBBox.bottomLeft.y < bbox.topRight.y) {
+						if (testedBBox.topRight.x > bbox.bottomLeft.x && testedBBox.topRight.y > bbox.bottomLeft.y) {
+							Point64 bl = { std::max(testedBBox.bottomLeft.x, bbox.bottomLeft.x), std::max(testedBBox.bottomLeft.y, bbox.bottomLeft.y) };
+							Point64 tr = { std::min(testedBBox.topRight.x, bbox.topRight.x), std::min(testedBBox.topRight.y, bbox.topRight.y) };
+							overlap += (tr.x - bl.x) * (tr.y - bl.y);
+						}
+					}
+				}
+				currentEval -= overlap;
+
+				//distance
+				currentEval += approxDistance(testedBBox.center.x - BBoxPlaced.center.x, testedBBox.center.y - BBoxPlaced.center.y);
+
+				if (currentEval < eval) {
+					positionFound = true;
+					eval = currentEval;
+					attachmentPoint = p;
+				}
+
 			}
 		}
 		break;
@@ -566,10 +722,44 @@ bool IncrementalNoFitSolver::findBestPlacement(ItemWithNoFit* testedItem, Point6
 	return positionFound;
 }
 
-int64_t IncrementalNoFitSolver::evalPlacement(ItemWithNoFit* item, Point64& translation) {
-	int64_t eval = 0;
-	
-	eval += approxDistance(translation.x, translation.y);
+bool IncrementalNoFitSolver::ItemIsBetter(ItemWithNoFit* item1, Point64& translation1, int64_t eval1, ItemWithNoFit* item2, Point64& translation2, int64_t eval2) {
 
-	return eval;
+	switch (placementMode)
+	{
+	case PlacementStrategy::BOTTOM_LEFT:
+		if (translation1.y < translation2.y)
+			return true;
+		else if (translation1.y == translation2.y && translation1.x < translation2.x)
+			return true;
+		else
+			return false;
+		break;
+	case PlacementStrategy::BOTTOM_RIGHT:
+		break;
+	case PlacementStrategy::TOP_LEFT:
+		break;
+	case PlacementStrategy::TOP_RIGHT:
+		break;
+	case PlacementStrategy::MIN_DIST:
+		return eval1 < eval2;
+		break;
+	case PlacementStrategy::CONCAVE_FIT:
+		break;
+	case PlacementStrategy::TOPOS:
+		return eval1 / item1->item->value < eval2 / item2->item->value;
+		break;
+	default:
+		break;
+	}
+	
+
+	return false;
+}
+
+
+void IncrementalNoFitSolver::getBestFitOrder(Problem* problem) {
+	IncrementalNoFitSolver solver = IncrementalNoFitSolver();
+	solver.bestFit = true;
+	solver.reorderItems = true;
+	solver.solve(problem);
 }

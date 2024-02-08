@@ -126,10 +126,14 @@ SolveStatus GeneticAlgorithmThreadedCorner::solve(Problem *prob) {
 
     // Initialization (Calculating fitness for initial individuals)
     this->initialization();
+    for (int i = 0; i < this->population.size() - 1; i++) {
+        std::cout << this->population[i].get_fitness() << " ";
+    }
+    std::cout << this->population[this->population.size() - 1].get_fitness() << std::endl;
     std::cout << "Best fitness after initialization: " << this->population[this->population.size() - 1].get_fitness() << std::endl;
 
     // Generate g new generation
-    for (int g = 0; g < 1000; g++) {
+    for (int g = 0; g < 100; g++) {
         // Send crossover tasks to thread pool
         for (int i = 0; i < m; i++) {
             this->tasks.push(CROSSOVER);
@@ -162,6 +166,11 @@ SolveStatus GeneticAlgorithmThreadedCorner::solve(Problem *prob) {
         prob->storeSolution(s.str(), 0);
         prob->clearCandidates();
         prob->setScore(0);
+
+        for (int i = 0; i < this->population.size() - 1; i++) {
+            std::cout << this->population[i].get_fitness() << " ";
+        }
+        std::cout << this->population[this->population.size() - 1].get_fitness() << std::endl;
 
         std::cout << "["  << g << "]: " << this->population[this->population.size() - 1].get_fitness() << std::endl;
         this->generation.clear();
@@ -266,6 +275,20 @@ void GeneticAlgorithmThreadedCorner::crossover(Individual *ind_i, Individual *in
     Individual individual = Individual(perm_desc);
     individual.set_strategies(strategies);
 
+    std::uniform_real_distribution<double> mutation_p(0, 1);
+
+    double mutation_prob = mutation_p(rng);
+    if (mutation_prob <= 0.5) {
+        std::uniform_int_distribution<std::mt19937::result_type> mutation(0, strategies.size());
+        int i = mutation(rng);
+        int j = mutation(rng);
+
+        Strategy s = strategies[i];
+        strategies[i] = strategies[j];
+        strategies[j] = s;
+    }
+
+
     std::vector<Candidate> c;
     long long score = 0;
 
@@ -278,6 +301,7 @@ void GeneticAlgorithmThreadedCorner::crossover(Individual *ind_i, Individual *in
     individual.set_candidates(problem->getCandidates());
 
     this->mut_generation.lock();
+    // std::cout << individual.get_fitness() << std::endl;
     this->generation.push_back(individual);
     this->mut_generation.unlock();
 }

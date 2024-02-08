@@ -1,0 +1,12 @@
+{
+	"algorithm-type": "genetic",
+	"placement-strategy": "bottom-left",
+	"algorithm-specifics": {
+        "crossover-rate": 0.6,
+        "crossover-type": "OX",
+        "generations": 100,
+        "mutation-rate": 0.2,
+        "mutation-type": "single-swap",
+        "population-size": 10
+    }
+}
