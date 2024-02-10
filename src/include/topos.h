@@ -4,7 +4,7 @@
 #include <CGAL/minkowski_sum_2.h>
 #include <CGAL/draw_polygon_2.h>
 
-enum placementPolicy { WASTE, OVERLAP, DISTANCE };
+enum class placementPolicy { WASTE, OVERLAP, DISTANCE };
 
 class Topos : public Solver
 {
@@ -17,6 +17,6 @@ public:
 
     SolveStatus solve(Problem* prob);
 
-    placementPolicy placementPolicy = OVERLAP;
+    placementPolicy placementStrategy = placementPolicy::OVERLAP;
 };
 

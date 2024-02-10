@@ -242,9 +242,9 @@ bool Topos::bestPlacement(std::vector<Polygon>& placed, Polygon& next, Polygon& 
 
 NT Topos::evalPlacement(std::vector<Polygon>& placed, Polygon& next, Point& position, Polygon& leftContainer, Polygon& rightContainer) {
     //evaluate quality of placing given piece at this position
-    switch (placementPolicy)
+    switch (placementStrategy)
     {
-    case WASTE:
+    case placementPolicy::WASTE:
     {
         //use difference in size of new and old bounding boxes of placed pieces
         if (placed.size() <= 0 || next.is_empty())
@@ -263,7 +263,7 @@ NT Topos::evalPlacement(std::vector<Polygon>& placed, Polygon& next, Point& posi
         }
         return 1.0 / (newBB - oldBB + 1);
     }
-    case OVERLAP:
+    case placementPolicy::OVERLAP:
     {
         //use overlap between bounding boxes of next piece and the ones already placed
         if (placed.size() <= 0 || next.is_empty())
@@ -286,7 +286,7 @@ NT Topos::evalPlacement(std::vector<Polygon>& placed, Polygon& next, Point& posi
         }
         return sumOverlap;
     }
-    case DISTANCE:
+    case placementPolicy::DISTANCE:
     {
         //use (squared) distance between center of bounding boxes of placed pieces and next
         if (placed.size() <= 0 || next.is_empty())
