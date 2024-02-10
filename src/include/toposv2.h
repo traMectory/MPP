@@ -3,7 +3,7 @@
 #include "problem.hpp"
 #include <CGAL/minkowski_sum_2.h>
 
-enum class joinMode { EXACT, APPROXIMATE, LEFT_EXTEND };
+enum class joinType { EXACT, APPROXIMATE, LEFT_EXTEND };
 
 void toIPE2(std::string path, Polygon boundary, std::vector<Polygon> polygons, std::vector<Point> points);
 
@@ -24,7 +24,7 @@ public:
 
     SolveStatus solve(Problem* prob);
 
-    joinMode joinMode = joinMode::EXACT;
+    joinType joinMode = joinType::EXACT;
     bool DEBUG = false;
     bool VERBOSE = false;
 };

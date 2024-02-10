@@ -710,10 +710,10 @@ SolveStatus Toposv2::solve(Problem* prob)
 
         switch (joinMode)
         {
-        case joinMode::EXACT:
+        case joinType::EXACT:
             addNewPieceExact(cand, container);
             break;
-        case joinMode::APPROXIMATE:
+        case joinType::APPROXIMATE:
             addNewPieceApprox(cand, container);
             break;
         default:
